@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sistema Unificado de Hilaturas</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- jsPDF y AutoTable (Para reportes) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    
+    <style>
+        html, body { -webkit-text-size-adjust: 100%; height: 100%; margin: 0; }
+        body { 
+            overscroll-behavior-y: none; 
+            -webkit-tap-highlight-color: transparent; 
+            background-color: #0f172a; 
+            color: #f8fafc; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        .card-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2); }
+        .modal-overlay { 
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+            background-color: rgba(0, 0, 0, 0.85); 
+            display: flex; align-items: center; justify-content: center; 
+            z-index: 1000; padding: 10px; backdrop-filter: blur(4px); 
+        }
+    </style>
+</head>
+<body class="select-none">
+    <div id="root" class="h-full"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+        
+        // =================================================================
+        // CONFIGURACIÓN DE FIREBASE
+        // =================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBqHgV4vDat1-VmZfKbiPg7nuiX-ROcexw",
+            authDomain: "cirineo-cec21.firebaseapp.com",
+            projectId: "cirineo-cec21",
+            storageBucket: "cirineo-cec21.firebasestorage.app",
+            messagingSenderId: "620210618284",
+            appId: "1:620210618284:web:482bab9bf74650fff18409",
+            measurementId: "G-B7YLM78RVW"
+        };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // =================================================================
+        // COMPONENTE ICONO REUTILIZABLE
+        // =================================================================
+        const Icon = ({ name, size = 18, className = '' }) => {
+            const r = useRef(null);
+            useEffect(() => {
+                if (r.current && window.lucide && window.lucide.icons[name]) {
+                    r.current.innerHTML = window.lucide.icons[name].toSvg({ width: size, height: size });
+                } else if (r.current) {
+                    const fallbacks = { 'printer': '🖨️', 'download': '⬇️', 'spool': '🧵', 'alert-triangle': '⚠️', 'folder': '📁', 'hash': '#', 'grip-vertical': '⋮⋮', 'chevron-down': '🔽', 'chevron-up': '🔼', 'layers': '📚', 'git-merge': '🔗', 'history': '⏳', 'plus': '➕', 'x': '❌', 'edit-2': '✏️', 'save': '💾', 'link': '🔗', 'arrow-down': '⬇️' };
+                    r.current.textContent = fallbacks[name] || name;
+                }
+            }, [name, size]);
+            return <span ref={r} className={`inline-flex items-center justify-center ${className || ''}`} />;
+        };
+
+        // =================================================================
+        // VISTA 1: INVENTARIO CENTRAL Y FUSIÓN
+        // =================================================================
+        const InventoryView = ({ items }) => {
+            const [showForm, setShowForm] = useState(false);
+            const [showMergeModal, setShowMergeModal] = useState(false);
+            const [isEditing, setIsEditing] = useState(null);
+            const [newItem, setNewItem] = useState({ material: '', color: '', hex: '#000000', calibre: '', estiraje: '', stock: '', proveedor: '', group: '', minStock: '10.00' });
+            const [originalItem, setOriginalItem] = useState(null);
+            const [collapsedGroups, setCollapsedGroups] = useState({});
+
+            const toggleGroup = (groupName) => setCollapsedGroups(prev => ({ ...prev, [groupName]: !prev[groupName] }));
+
+            const groupedItems = useMemo(() => {
+                const sorted = [...items].sort((a, b) => {
+                    const gA = (a.group || 'SIN GRUPO').toUpperCase();
+                    const gB = (b.group || 'SIN GRUPO').toUpperCase();
+                    if (gA < gB) return -1; if (gA > gB) return 1;
+                    return a.material.localeCompare(b.material);
+                });
+                return sorted.reduce((acc, item) => {
+                    const gName = item.group || 'SIN GRUPO';
+                    if (!acc[gName]) acc[gName] = [];
+                    acc[gName].push(item);
+                    return acc;
+                }, {});
+            }, [items]);
+
+            const logMovement = async (item, type, quantity, note = '') => {
+                 await db.collection('inventory_movements').add({
+                    materialId: item.id, materialName: item.material, color: item.color || '',
+                    type, quantityKg: quantity, currentStock: item.stock,
+                    date: new Date().toISOString().split('T')[0], timestamp: Date.now(), note
+                });
+            };
+
+            // -------------------------------------------------------------------------
+            // FUNCIÓN MAESTRA DE PROPAGACIÓN DE CAMBIOS (Edición y Fusión)
+            // -------------------------------------------------------------------------
+            const propagateFiberChange = async (oldId, newId, newFullName) => {
+                const updates = [];
+
+                // 1. Actualizar en colección: orders
+                const ordersSnap = await db.collection('orders').get();
+                ordersSnap.forEach(doc => {
+                    const data = doc.data();
+                    if (data.threading) {
+                        let changed = false;
+                        const newThreading = data.threading.map(t => {
+                            if (t.materialId === oldId) { changed = true; return { ...t, materialId: newId, material: newFullName }; }
+                            return t;
+                        });
+                        if (changed) updates.push({ ref: doc.ref, data: { threading: newThreading } });
+                    }
+                });
+
+                // 2. Actualizar en colección: plantillas
+                const plantillasSnap = await db.collection('plantillas').get();
+                plantillasSnap.forEach(doc => {
+                    const data = doc.data();
+                    if (data.threading) {
+                        let changed = false;
+                        const newThreading = data.threading.map(t => {
+                            if (t.materialId === oldId) { changed = true; return { ...t, materialId: newId, material: newFullName }; }
+                            return t;
+                        });
+                        if (changed) updates.push({ ref: doc.ref, data: { threading: newThreading } });
+                    }
+                });
+
+                // 3. Actualizar en colección: consumo_hilo_historial (Bitácora)
+                const historySnap = await db.collection('consumo_hilo_historial').where('materialId', '==', oldId).get();
+                historySnap.forEach(doc => {
+                    updates.push({ 
+                        ref: doc.ref, 
+                        data: { materialId: newId, materialName: newFullName, materialNombre: newFullName } 
+                    });
+                });
+
+                // 4. Actualizar en colección: hilaturas-rouss (Estructuras)
+                const roussSnap = await db.collection('hilaturas-rouss').where('inventoryId', '==', oldId).get();
+                roussSnap.forEach(doc => {
+                    updates.push({ ref: doc.ref, data: { inventoryId: newId, codigo: newFullName } });
+                });
+
+                // EJECUTAR EN LOTES DE 400 (Para evitar error de Firebase de 500 limit por batch)
+                const chunkSize = 400;
+                for (let i = 0; i < updates.length; i += chunkSize) {
+                    const batch = db.batch();
+                    updates.slice(i, i + chunkSize).forEach(u => batch.update(u.ref, u.data));
+                    await batch.commit();
+                }
+            };
+
+            const handleSave = async () => {
+                if (!newItem.material) return alert("Nombre del material obligatorio");
+                
+                let updatedList;
+                const stockValue = parseFloat(newItem.stock) || 0;
+                const minStockValue = parseFloat(newItem.minStock) || 10;
+                const payload = {
+                    ...newItem, id: isEditing ? newItem.id : Date.now().toString(),
+                    stock: stockValue.toFixed(2), minStock: minStockValue.toFixed(2),
+                    group: newItem.group.toUpperCase() || 'SIN GRUPO', updatedAt: new Date().toISOString()
+                };
+
+                if (isEditing) {
+                    updatedList = items.map(i => i.id === payload.id ? payload : i);
+                    if (originalItem.material !== payload.material || originalItem.color !== payload.color) {
+                        const newFullName = `${payload.material} ${payload.color || ''}`.trim();
+                        
+                        // Propagar cambios a todo el ecosistema
+                        await propagateFiberChange(payload.id, payload.id, newFullName);
+                        
+                        await logMovement(payload, "EDICION_GLOBAL", 0, `Nombre actualizado globalmente.`);
+                    } else {
+                        await logMovement(payload, "EDICION_DETALLE", 0, `Cambios en propiedades.`);
+                    }
+                } else {
+                    updatedList = [...items, payload];
+                    if (stockValue > 0) await logMovement(payload, "ENTRADA", stockValue, `Ingreso inicial.`);
+                }
+
+                await db.collection('inventory').doc('main').set({ items: updatedList });
+                setNewItem({ material: '', color: '', hex: '#000000', calibre: '', estiraje: '', stock: '', proveedor: '', group: '', minStock: '10.00' });
+                setIsEditing(null); setOriginalItem(null); setShowForm(false);
+            };
+
+            const startEdit = (item) => { setOriginalItem({...item}); setNewItem(item); setIsEditing(true); setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+
+            const MergeModal = () => {
+                const [sourceId, setSourceId] = useState('');
+                const [targetId, setTargetId] = useState('');
+                const [confirmText, setConfirmText] = useState('');
+                const [processing, setProcessing] = useState(false);
+
+                const executeMerge = async () => {
+                    if (sourceId === targetId) return alert("El origen y destino no pueden ser el mismo.");
+                    if (confirmText !== 'FUSIONAR') return alert("Escribe FUSIONAR para confirmar.");
+                    setProcessing(true);
+
+                    try {
+                        const sourceItem = items.find(i => i.id === sourceId);
+                        const targetItem = items.find(i => i.id === targetId);
+                        const targetFullName = `${targetItem.material} ${targetItem.color || ''}`.trim();
+                        
+                        // Sumar Stock y remover el origen del inventario principal
+                        const newStock = (parseFloat(targetItem.stock) || 0) + (parseFloat(sourceItem.stock) || 0);
+                        let updatedItems = items.map(i => i.id === targetId ? { ...i, stock: newStock.toFixed(2) } : i);
+                        updatedItems = updatedItems.filter(i => i.id !== sourceId);
+                        
+                        await db.collection('inventory').doc('main').set({ items: updatedItems });
+                        await logMovement(targetItem, "FUSION_ENTRADA", sourceItem.stock, `Fusión recibida de ${sourceItem.material}`);
+
+                        // Propagar fusión a Órdenes, Plantillas, Bitácora y Estructuras Rouss
+                        await propagateFiberChange(sourceId, targetId, targetFullName);
+
+                        alert("¡Fusión completada con éxito! La base de datos y todo el historial han sido actualizados.");
+                        setShowMergeModal(false);
+                    } catch (e) {
+                        console.error(e); alert("Error en la fusión.");
+                    }
+                    setProcessing(false);
+                };
+
+                return (
+                    <div className="modal-overlay">
+                        <div className="bg-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6 border border-slate-700">
+                            <h3 className="font-black text-xl text-white mb-2 flex items-center gap-2"><Icon name="git-merge" className="text-indigo-400"/> Herramienta de Fusión</h3>
+                            <p className="text-xs text-slate-400 mb-6">Agrupa hilos duplicados. El stock del origen se sumará al destino y se actualizarán todas las órdenes, plantillas, bitácora y estructuras automáticamente.</p>
+                            
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-red-400 mb-1">ORIGEN (Este hilo se ELIMINARÁ)</label>
+                                    <select className="w-full p-3 rounded-lg bg-slate-900 border-2 border-red-900 text-white font-bold" value={sourceId} onChange={e=>setSourceId(e.target.value)}>
+                                        <option value="">-- Selecciona el hilo a desaparecer --</option>
+                                        {items.map(i => <option key={i.id} value={i.id}>{i.material} {i.color||''} ({i.stock} kg)</option>)}
+                                    </select>
+                                </div>
+                                <div className="flex justify-center text-slate-500"><Icon name="arrow-down" /></div>
+                                <div>
+                                    <label className="block text-xs font-bold text-green-400 mb-1">DESTINO (Este hilo PREVALECE)</label>
+                                    <select className="w-full p-3 rounded-lg bg-slate-900 border-2 border-green-900 text-white font-bold" value={targetId} onChange={e=>setTargetId(e.target.value)}>
+                                        <option value="">-- Selecciona el hilo correcto --</option>
+                                        {items.map(i => <option key={i.id} value={i.id}>{i.material} {i.color||''} ({i.stock} kg)</option>)}
+                                    </select>
+                                </div>
+                                <div className="pt-4 border-t border-slate-700">
+                                    <label className="block text-xs font-bold text-slate-400 mb-1">Escribe "FUSIONAR" para confirmar</label>
+                                    <input type="text" className="w-full p-3 rounded-lg bg-slate-900 border border-slate-600 text-white text-center font-black uppercase tracking-widest" value={confirmText} onChange={e=>setConfirmText(e.target.value.toUpperCase())} />
+                                </div>
+                            </div>
+                            
+                            <div className="mt-6 flex gap-3">
+                                <button onClick={()=>setShowMergeModal(false)} className="flex-1 p-3 bg-slate-700 text-white rounded-lg font-bold">Cancelar</button>
+                                <button onClick={executeMerge} disabled={processing || confirmText !== 'FUSIONAR'} className="flex-1 p-3 bg-indigo-600 disabled:bg-slate-700 text-white rounded-lg font-black shadow-lg">
+                                    {processing ? 'Procesando...' : 'FUSIONAR AHORA'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="p-4 max-w-7xl mx-auto pb-20">
+                    {showMergeModal && <MergeModal />}
+                    <div className="flex flex-col md:flex-row gap-3 mb-6">
+                        <button onClick={() => { setShowForm(!showForm); if(!showForm) { setIsEditing(false); setNewItem({ material: '', color: '', hex: '#000000', calibre: '', estiraje: '', stock: '', proveedor: '', group: '', minStock: '10.00' }); } }} className={`flex-1 py-3 rounded-xl font-black text-white flex justify-center items-center gap-2 shadow-sm transition-colors ${showForm ? 'bg-slate-700' : 'bg-indigo-600'}`}>
+                            <Icon name={showForm ? "x" : "plus"} /> {showForm ? "CANCELAR" : "NUEVA HILATURA"}
+                        </button>
+                        <button onClick={() => setShowMergeModal(true)} className="md:w-auto py-3 px-6 rounded-xl font-black text-white bg-slate-800 border border-indigo-500/50 hover:bg-slate-700 flex justify-center items-center gap-2">
+                            <Icon name="git-merge" /> FUSIONAR HILOS
+                        </button>
+                    </div>
+
+                    {showForm && (
+                        <div className="bg-slate-800 p-5 rounded-xl shadow-lg border border-slate-700 mb-6">
+                            <h2 className="font-black text-lg mb-4 text-indigo-400 border-b border-slate-700 pb-2">{isEditing ? "EDITAR REGISTRO" : "CREAR REGISTRO"}</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold mb-1 text-slate-400">GRUPO</label>
+                                    <input list="groups" className="w-full bg-slate-900 border border-slate-600 p-3 rounded-lg uppercase font-bold text-white focus:border-indigo-500 outline-none" value={newItem.group} onChange={e => setNewItem({...newItem, group: e.target.value.toUpperCase()})} />
+                                    <datalist id="groups"><option value="NYLON" /><option value="POLIESTER" /><option value="ALGODÓN" /></datalist>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold mb-1 text-slate-400">MATERIAL *</label>
+                                    <input className="w-full bg-slate-900 border border-slate-600 p-3 rounded-lg uppercase font-black text-white focus:border-indigo-500 outline-none" value={newItem.material} onChange={e => setNewItem({...newItem, material: e.target.value.toUpperCase()})} />
+                                </div>
+                                <div className="flex gap-3">
+                                    <div className="flex-1">
+                                        <label className="block text-xs font-bold mb-1 text-slate-400">COLOR (Opcional)</label>
+                                        <input placeholder="Ej. ROJO" className="w-full bg-slate-900 border border-slate-600 p-3 rounded-lg uppercase font-bold text-white outline-none" value={newItem.color} onChange={e => setNewItem({...newItem, color: e.target.value.toUpperCase()})} />
+                                    </div>
+                                    <div className="w-20">
+                                        <label className="block text-xs font-bold mb-1 text-slate-400 text-center">TONO</label>
+                                        <input type="color" className="w-full h-[52px] border border-slate-600 p-1 rounded-lg cursor-pointer bg-slate-900" value={newItem.hex || '#000000'} onChange={e => setNewItem({...newItem, hex: e.target.value})} />
+                                    </div>
+                                </div>
+                                <div className="flex gap-3">
+                                    <div className="flex-1"><label className="block text-xs font-bold mb-1 text-slate-400">CALIBRE</label><input className="w-full bg-slate-900 border border-slate-600 p-3 rounded-lg text-white" value={newItem.calibre} onChange={e => setNewItem({...newItem, calibre: e.target.value})} /></div>
+                                    <div className="flex-1"><label className="block text-xs font-bold mb-1 text-slate-400">ESTIRAJE</label><input className="w-full bg-slate-900 border border-slate-600 p-3 rounded-lg text-white" value={newItem.estiraje} onChange={e => setNewItem({...newItem, estiraje: e.target.value})} /></div>
+                                </div>
+                                <div className="md:col-span-2 flex gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+                                    <div className="flex-1">
+                                        <label className="block text-xs font-bold mb-1 text-slate-300">STOCK (Kg)</label>
+                                        <input type="number" step="0.01" className="w-full bg-slate-900 border-2 border-indigo-500/50 p-3 rounded-lg font-black text-xl text-center text-white" value={newItem.stock} onChange={e => setNewItem({...newItem, stock: e.target.value})} />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="block text-xs font-bold mb-1 text-red-400">MÍNIMO (Kg)</label>
+                                        <input type="number" step="0.01" className="w-full bg-slate-900 border-2 border-red-500/50 p-3 rounded-lg font-bold text-xl text-center text-red-400" value={newItem.minStock} onChange={e => setNewItem({...newItem, minStock: e.target.value})} />
+                                    </div>
+                                </div>
+                                <div className="md:col-span-2">
+                                    <button onClick={handleSave} className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl shadow-lg flex justify-center items-center gap-2 text-lg transition">
+                                        <Icon name="save" /> {isEditing ? "GUARDAR CAMBIOS" : "CREAR HILATURA"}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="space-y-4">
+                        {Object.keys(groupedItems).map(groupName => {
+                            const groupItems = groupedItems[groupName];
+                            const isCollapsed = collapsedGroups[groupName];
+                            return (
+                                <div key={groupName} className="bg-slate-800 rounded-xl shadow-sm border border-slate-700 overflow-hidden">
+                                    <div className="bg-slate-900 p-4 flex justify-between items-center cursor-pointer hover:bg-slate-800/80 transition" onClick={() => toggleGroup(groupName)}>
+                                        <div className="flex items-center gap-3">
+                                            <Icon name={isCollapsed ? "chevron-right" : "chevron-down"} className="text-slate-400" />
+                                            <h3 className="font-black text-lg text-white tracking-wider">{groupName}</h3>
+                                            <span className="bg-slate-700 text-xs px-2 py-1 rounded-full font-bold">{groupItems.length}</span>
+                                        </div>
+                                    </div>
+                                    {!isCollapsed && (
+                                        <div className="p-3 bg-slate-800/50 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {groupItems.map(item => {
+                                                const stockNum = parseFloat(item.stock) || 0;
+                                                const minStockNum = parseFloat(item.minStock) || 10;
+                                                const isLow = stockNum <= minStockNum;
+                                                return (
+                                                    <div key={item.id} className={`bg-slate-800 rounded-xl border-l-4 flex flex-col overflow-hidden ${isLow ? 'border-l-red-500' : 'border-l-indigo-500'} border-t border-r border-b border-slate-700`}>
+                                                        <div className="p-4 flex gap-3 flex-1">
+                                                            <div className="w-10 h-10 rounded-full shrink-0 border-2 border-slate-700" style={{ backgroundColor: item.hex || '#333' }}></div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="font-black text-lg text-white truncate leading-tight">{item.material}</div>
+                                                                <div className="text-sm font-bold text-slate-400">{item.color || 'Sin color esp.'}</div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-slate-900/50 border-t border-slate-700 p-3 flex items-center justify-between">
+                                                            <div>
+                                                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Stock Actual</div>
+                                                                <div className={`font-black text-xl leading-none ${isLow ? 'text-red-400' : 'text-emerald-400'}`}>{stockNum.toFixed(2)} <span className="text-xs">kg</span></div>
+                                                            </div>
+                                                            <button onClick={() => startEdit(item)} className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition"><Icon name="edit-2" size={16} /></button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        };
+
+        // =================================================================
+        // VISTA 2: COMPOSICIÓN / ESTRUCTURAS ROUSS
+        // =================================================================
+        const ComposicionView = ({ inventoryBase }) => {
+            const [estructuras, setEstructuras] = useState([]);
+            const [showForm, setShowForm] = useState(false);
+            const [formData, setFormData] = useState({ inventoryId: '', codigo: '', calibre: '', filamentos: '', estiraje: '', notas: '', composicion: [{ material: 'Poliamida', porcentaje: 100 }] });
+            
+            useEffect(() => {
+                const unsub = db.collection('hilaturas-rouss').onSnapshot(snap => setEstructuras(snap.docs.map(d => ({id: d.id, ...d.data()}))));
+                return () => unsub();
+            }, []);
+
+            const MATERIAS = ["Poliamida", "Elastano", "Poliéster", "Algodón", "Viscosa", "Otro"];
+            const updateComposicion = (idx, field, val) => {
+                const newC = [...formData.composicion];
+                newC[idx][field] = field === 'porcentaje' ? parseFloat(val)||0 : val;
+                setFormData({...formData, composicion: newC});
+            };
+
+            const handleSave = async () => {
+                const total = formData.composicion.reduce((a, b) => a + b.porcentaje, 0);
+                if (total !== 100) return alert("Los porcentajes deben sumar 100%");
+                await db.collection('hilaturas-rouss').add({...formData, updatedAt: Date.now()});
+                setShowForm(false); setFormData({ inventoryId: '', codigo: '', calibre: '', filamentos: '', estiraje: '', notas: '', composicion: [{ material: 'Poliamida', porcentaje: 100 }] });
+            };
+
+            return (
+                <div className="p-4 max-w-7xl mx-auto pb-20">
+                    <button onClick={() => setShowForm(!showForm)} className="w-full mb-6 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-black text-white flex justify-center items-center gap-2">
+                        <Icon name={showForm ? "x" : "link"} /> {showForm ? "CANCELAR" : "VINCULAR NUEVA ESTRUCTURA"}
+                    </button>
+                    {showForm && (
+                        <div className="bg-slate-800 p-5 rounded-xl border border-slate-700 mb-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-400 mb-1">HILATURA DEL INVENTARIO</label>
+                                <select className="w-full bg-slate-900 border border-slate-600 p-3 rounded-lg text-white font-bold" value={formData.inventoryId} onChange={e => {
+                                    const item = inventoryBase.find(i => i.id === e.target.value);
+                                    if(item) setFormData({...formData, inventoryId: item.id, codigo: `${item.material} ${item.color||''}`.trim(), calibre: item.calibre||'', estiraje: item.estiraje||''});
+                                }}>
+                                    <option value="">-- Selecciona --</option>
+                                    {inventoryBase.map(i => <option key={i.id} value={i.id}>{i.material} {i.color||''}</option>)}
+                                </select>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div><label className="block text-xs text-slate-400 mb-1">CALIBRE</label><input className="w-full bg-slate-900 p-2 rounded text-white" value={formData.calibre} onChange={e=>setFormData({...formData, calibre:e.target.value})}/></div>
+                                <div><label className="block text-xs text-slate-400 mb-1">FILAMENTOS</label><input className="w-full bg-slate-900 p-2 rounded text-white" value={formData.filamentos} onChange={e=>setFormData({...formData, filamentos:e.target.value})}/></div>
+                                <div><label className="block text-xs text-slate-400 mb-1">ESTIRAJE</label><input className="w-full bg-slate-900 p-2 rounded text-white" value={formData.estiraje} onChange={e=>setFormData({...formData, estiraje:e.target.value})}/></div>
+                            </div>
+                            <div className="bg-slate-900 p-3 rounded border border-slate-700">
+                                <label className="block text-xs font-bold text-slate-300 mb-2">MATERIAS PRIMAS</label>
+                                {formData.composicion.map((c, idx) => (
+                                    <div key={idx} className="flex gap-2 mb-2">
+                                        <select className="flex-1 bg-slate-800 p-2 text-white text-sm" value={c.material} onChange={e=>updateComposicion(idx, 'material', e.target.value)}>
+                                            {MATERIAS.map(m => <option key={m}>{m}</option>)}
+                                        </select>
+                                        <input type="number" className="w-20 bg-slate-800 p-2 text-white text-center font-bold" value={c.porcentaje} onChange={e=>updateComposicion(idx, 'porcentaje', e.target.value)} />
+                                        <span className="text-slate-400 self-center">%</span>
+                                    </div>
+                                ))}
+                                <button onClick={()=>setFormData({...formData, composicion: [...formData.composicion, {material:'Elastano', porcentaje:0}]})} className="text-xs bg-slate-700 px-3 py-1 rounded text-white">Añadir Fibra</button>
+                            </div>
+                            <button onClick={handleSave} className="w-full py-3 bg-indigo-600 text-white font-black rounded-lg">GUARDAR ESTRUCTURA</button>
+                        </div>
+                    )}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {estructuras.map(e => (
+                            <div key={e.id} className="bg-slate-800 border border-slate-700 rounded-xl p-4 border-l-4 border-l-indigo-500 shadow-lg">
+                                <div className="text-[10px] text-indigo-400 font-bold mb-1">VINCULADO AL INVENTARIO</div>
+                                <h3 className="font-black text-lg text-white uppercase">{e.codigo}</h3>
+                                <div className="flex gap-2 text-[10px] font-mono text-slate-400 mt-2">
+                                    <span className="bg-slate-900 px-2 py-1 rounded">CAL: {e.calibre||'-'}</span>
+                                    <span className="bg-slate-900 px-2 py-1 rounded">FIL: {e.filamentos||'-'}</span>
+                                </div>
+                                <div className="mt-4 pt-4 border-t border-slate-700">
+                                    {e.composicion.map((c, i) => (
+                                        <div key={i} className="flex justify-between items-center text-sm font-bold text-slate-300 mb-1">
+                                            <span>{c.material}</span><span className="text-white">{c.porcentaje}%</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // =================================================================
+        // VISTA 3: BITÁCORA DE CONSUMO (PRODUCCIÓN)
+        // =================================================================
+        const HistorialConsumoView = () => {
+            const [logs, setLogs] = useState([]);
+            
+            useEffect(() => {
+                const unsub = db.collection('consumo_hilo_historial').orderBy('timestamp', 'desc').limit(100)
+                    .onSnapshot(snap => setLogs(snap.docs.map(d => ({id: d.id, ...d.data()}))));
+                return () => unsub();
+            }, []);
+
+            return (
+                <div className="p-4 max-w-7xl mx-auto pb-20">
+                    <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 mb-4 flex items-center justify-between">
+                        <h2 className="text-xl font-black text-white flex items-center gap-2"><Icon name="history" className="text-indigo-400"/> Historial de Consumo Real</h2>
+                        <div className="text-xs text-slate-400">Descuentos físicos desde piso de producción</div>
+                    </div>
+                    
+                    <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm text-slate-300">
+                                <thead className="bg-slate-900 text-slate-400 text-xs uppercase font-bold">
+                                    <tr><th className="p-3">Fecha</th><th className="p-3">Orden / Partida</th><th className="p-3">Pieza / Talla</th><th className="p-3">Máq.</th><th className="p-3">Hilo Consumido</th><th className="p-3 text-right">Kilos Descontados</th></tr>
+                                </thead>
+                                <tbody>
+                                    {logs.length === 0 ? <tr><td colSpan="6" className="p-6 text-center text-slate-500">Aún no hay consumos registrados desde producción.</td></tr> :
+                                        logs.map(log => (
+                                            <tr key={log.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                                                <td className="p-3 text-xs">{new Date(log.timestamp).toLocaleString('es-MX')}</td>
+                                                <td className="p-3 font-bold text-white">{log.ordenCompra || 'S/OC'} <br/><span className="text-[10px] text-slate-400">{log.partida}</span></td>
+                                                <td className="p-3">{log.pieza} <br/><span className="text-xs font-bold text-indigo-400">{log.talla}</span></td>
+                                                <td className="p-3 font-mono">{log.maquina}</td>
+                                                <td className="p-3 font-bold">{log.materialNombre || log.materialName}</td>
+                                                <td className="p-3 text-right font-black text-red-400">-{parseFloat(log.kilos).toFixed(3)} kg</td>
+                                            </tr>
+                                        ))
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // =================================================================
+        // VISTA 4: ESTIMACIÓN Y RESUMEN (CÓDIGO 1 INTEGRADO)
+        // =================================================================
+        
+        // Helper Estimaciones
+        const calculateMaterialConsumption = (orders) => {
+            const materials = {};
+            orders.forEach(order => {
+                let pesoTotalGramos = 0;
+                let pesoConsumidoGramos = 0;
+                
+                const pieceWeights = {};
+                (order.subPiecesData || []).forEach(sp => {
+                pieceWeights[sp.pieza] = Number(sp.peso) || 0;
+                });
+                
+                (order.progreso || []).forEach(pkg => {
+                const weight = pieceWeights[pkg.piezaNombre] || 0;
+                const pkgGrams = pkg.cantidad * weight;
+                pesoTotalGramos += pkgGrams;
+                if (pkg.finished) pesoConsumidoGramos += pkgGrams;
+                });
+                
+                (order.threading || []).forEach(th => {
+                if (th.material && Number(th.porcentaje) > 0) {
+                    const matName = th.material;
+                    const pct = Number(th.porcentaje) / 100;
+                    if (!materials[matName]) materials[matName] = { consumido: 0, total: 0 };
+                    materials[matName].consumido += (pesoConsumidoGramos * pct) / 1000;
+                    materials[matName].total += (pesoTotalGramos * pct) / 1000;
+                }
+                });
+            });
+            return materials;
+        };
+
+        // Componentes Estimaciones
+        const OCAccordion = ({ ocGroup, expanded, onToggle }) => {
+            const ocKey = ocGroup.id;
+            const allOrders = ocGroup.orders;
+
+            const { totalPkgs, finishedPkgs, progressPercent } = useMemo(() => {
+                let total = 0, finished = 0;
+                allOrders.forEach(o => {
+                total += o.progreso?.length || 0;
+                finished += o.progreso?.filter(p => p.finished).length || 0;
+                });
+                return { totalPkgs: total, finishedPkgs: finished, progressPercent: total ? Math.round((finished / total) * 100) : 0 };
+            }, [allOrders]);
+
+            const materialsSummary = useMemo(() => calculateMaterialConsumption(allOrders), [allOrders]);
+            const materialKeys = Object.keys(materialsSummary).sort();
+            const isFree = totalPkgs === 0 || finishedPkgs === totalPkgs;
+
+            return (
+                <div className="bg-slate-800 rounded-xl card-shadow border border-slate-700 h-full flex flex-col overflow-hidden">
+                <div className="p-3">
+                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 flex-1">
+                        <div className="text-slate-600"><Icon name="grip-vertical" size={18}/></div>
+                        <button onClick={onToggle} className="flex items-center gap-3 flex-1 text-left">
+                            <div className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center shrink-0 border ${isFree ? 'bg-slate-700 border-slate-600' : 'bg-blue-900/30 border-blue-500/50 shadow-inner'}`}>
+                            <span className={`text-[8px] font-bold ${isFree ? 'text-slate-500' : 'text-blue-300'}`}>ORDEN</span>
+                            <Icon name="folder" size={20} className={isFree ? 'text-slate-500' : 'text-blue-400'}/>
+                            </div>
+                            <div className="min-w-0">
+                            <div className="text-lg font-black text-slate-100 truncate flex items-center gap-2">{ocKey}</div>
+                            <div className="text-xs font-bold text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                <Icon name="hash" size={12}/> {allOrders.length} Máquina{allOrders.length!==1?'s':''} en O.C.
+                            </div>
+                            </div>
+                        </button>
+                    </div>
+                    <button onClick={onToggle} className="p-2"><Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={20} className="text-slate-400" /></button>
+                    </div>
+                    <div className="w-full bg-slate-900/50 h-3 rounded-full overflow-hidden border border-slate-700 mt-2">
+                    <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
+                    </div>
+                    <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                    <span>{finishedPkgs}/{totalPkgs} pqs</span><span>{progressPercent}% completado</span>
+                    </div>
+                </div>
+
+                {expanded && (
+                    <div className="border-t border-slate-700 p-3 bg-slate-900/50 flex-1 overflow-y-auto">
+                    {materialKeys.length > 0 ? (
+                        <div className="flex flex-col gap-2 mb-4 p-3 bg-slate-800 border border-slate-700 rounded-xl">
+                        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                            <Icon name="spool" size={14} className="text-blue-400"/> Consumo de Materiales (Estimado O.C.)
+                        </h3>
+                        <div className="space-y-3 mt-1">
+                            {materialKeys.map(mat => {
+                            const { consumido, total } = materialsSummary[mat];
+                            const pct = total > 0 ? Math.min(100, (consumido / total) * 100) : 0;
+                            return (
+                                <div key={mat} className="text-xs">
+                                <div className="flex justify-between items-end mb-1">
+                                    <span className="font-bold text-slate-300 truncate pr-2">{mat.split(' - ')[0]}</span>
+                                    <div className="text-right shrink-0">
+                                    <span className="text-emerald-400 font-bold">{consumido.toFixed(2)} kg</span>
+                                    <span className="text-slate-500 font-bold mx-1">/</span>
+                                    <span className="text-slate-300 font-bold">{total.toFixed(2)} kg</span>
+                                    </div>
+                                </div>
+                                <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden border border-slate-700">
+                                    <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${pct}%` }}></div>
+                                </div>
+                                </div>
+                            );
+                            })}
+                        </div>
+                        </div>
+                    ) : (
+                        <div className="text-center text-slate-500 py-4 text-sm">No hay materiales registrados.</div>
+                    )}
+                    </div>
+                )}
+                </div>
+            );
+        };
+
+        const GlobalMaterialsTab = ({ orders, onDownload }) => {
+            const enrichedData = useMemo(() => {
+                const materials = {};
+                orders.forEach(order => {
+                    const pieceWeights = {};
+                    const pieceTotals = {};
+                    (order.subPiecesData || []).forEach(sp => {
+                        pieceWeights[sp.pieza] = Number(sp.peso) || 0;
+                        pieceTotals[sp.pieza] = Number(sp.totalPedido) || 0;
+                    });
+
+                    let pesoConsumidoGramos = 0;
+                    (order.progreso || []).forEach(pkg => {
+                        if (pkg.finished) pesoConsumidoGramos += (pkg.cantidad || 0) * (pieceWeights[pkg.piezaNombre] || 0);
+                    });
+
+                    let pesoTotalGramos = 0;
+                    (order.subPiecesData || []).forEach(sp => {
+                        pesoTotalGramos += (Number(sp.peso) || 0) * (Number(sp.totalPedido) || 0);
+                    });
+
+                    (order.threading || []).forEach(th => {
+                        if (th.material && Number(th.porcentaje) > 0) {
+                        const matName = th.material;
+                        const pct = Number(th.porcentaje) / 100;
+                        if (!materials[matName]) materials[matName] = { consumido: 0, total: 0, restante: 0 };
+                        materials[matName].consumido += (pesoConsumidoGramos * pct) / 1000;
+                        materials[matName].total += (pesoTotalGramos * pct) / 1000;
+                        }
+                    });
+                });
+
+                return Object.keys(materials).map(key => {
+                    const s = materials[key];
+                    const restante = Math.max(0, s.total - s.consumido);
+                    return { name: key, consumido: s.consumido, total: s.total, restante };
+                }).sort((a, b) => b.restante - a.restante); 
+            }, [orders]);
+
+            return (
+                <div className="p-4 max-w-7xl mx-auto space-y-4">
+                    <div className="bg-slate-800 rounded-xl p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-slate-700 card-shadow">
+                        <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
+                        <Icon name="spool" size={32} className="text-indigo-400" /> Resumen Global Estimado
+                        </h1>
+                        {enrichedData.length > 0 && (
+                        <button onClick={() => onDownload({ data: enrichedData, isOCView: false, title: 'Informe Global de Hilaturas' })} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-colors shadow-lg">
+                            <Icon name="download" /> Descargar PDF
+                        </button>
+                        )}
+                    </div>
+
+                    {enrichedData.length === 0 && (
+                        <div className="text-center text-slate-500 py-10 font-bold text-lg bg-slate-800 rounded-xl border border-slate-700">No hay materiales en producción actualmente.</div>
+                    )}
+                    
+                    {enrichedData.map(item => {
+                        const pct = item.total > 0 ? Math.min(100, (item.consumido / item.total) * 100) : 0;
+                        return (
+                        <div key={item.name} className="bg-slate-800 border border-slate-700 rounded-xl p-4 md:p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-4 card-shadow">
+                            <div className="flex-1">
+                            <div className="font-black text-slate-200 text-xl flex items-center gap-2 mb-2"><Icon name="spool" size={24} className="text-indigo-400" />{item.name}</div>
+                            <div className="w-full bg-slate-900 h-3 rounded-full overflow-hidden border border-slate-700">
+                                <div className="bg-indigo-500 h-full transition-all duration-500" style={{ width: `${pct}%` }}></div>
+                            </div>
+                            <div className="text-xs text-slate-400 font-bold mt-1.5 text-right">{pct.toFixed(1)}% Consumido</div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 md:gap-4 xl:w-auto w-full shrink-0">
+                            <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 text-center">
+                                <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">Ya Consumido</div>
+                                <div className="font-black text-emerald-400 text-base md:text-xl">{item.consumido.toFixed(2)} kg</div>
+                            </div>
+                            <div className="bg-amber-900/20 p-3 rounded-lg border-2 border-amber-500/50 text-center relative overflow-hidden shadow-[0_0_15px_rgba(245,158,11,0.15)]">
+                                <div className="relative z-10">
+                                <div className="text-[10px] text-amber-400 font-black uppercase tracking-wider mb-1">Por Consumir</div>
+                                <div className="font-black text-amber-400 text-lg md:text-2xl">{item.restante.toFixed(2)} kg</div>
+                                </div>
+                            </div>
+                            <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700 text-center">
+                                <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">Gran Total</div>
+                                <div className="font-black text-slate-200 text-base md:text-xl">{item.total.toFixed(2)} kg</div>
+                            </div>
+                            </div>
+                        </div>
+                        );
+                    })}
+                </div>
+            );
+        };
+
+        const OCMaterialsTab = ({ orders, onDownload }) => {
+            const [expandedOC, setExpandedOC] = useState(null);
+            const ocGroups = useMemo(() => {
+                const groups = {};
+                orders.forEach(o => {
+                const ocKey = o.ordenCompra ? String(o.ordenCompra).toUpperCase() : o.partida;
+                if (!groups[ocKey]) groups[ocKey] = { id: ocKey, orders: [] };
+                groups[ocKey].orders.push(o);
+                });
+                return Object.values(groups).sort((a, b) => a.id.localeCompare(b.id));
+            }, [orders]);
+
+            return (
+                <div className="p-4 max-w-7xl mx-auto space-y-4">
+                    <div className="bg-slate-800 rounded-xl p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-slate-700 card-shadow">
+                        <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
+                        <Icon name="folder" size={32} className="text-blue-400" /> Hilaturas por O.C.
+                        </h1>
+                        {ocGroups.length > 0 && (
+                        <button onClick={() => onDownload({ data: ocGroups.map(oc => ({ id: oc.id, materials: calculateMaterialConsumption(oc.orders) })), isOCView: true, title: 'Informe de Hilaturas por O.C.' })} className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-colors shadow-lg">
+                            <Icon name="download" /> Descargar PDF (O.C.)
+                        </button>
+                        )}
+                    </div>
+                    {ocGroups.length === 0 && (
+                        <div className="text-center text-slate-500 py-10 font-bold text-lg bg-slate-800 rounded-xl border border-slate-700">No hay órdenes activas.</div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {ocGroups.map(g => (
+                        <OCAccordion key={g.id} ocGroup={g} expanded={expandedOC === g.id} onToggle={() => setExpandedOC(expandedOC === g.id ? null : g.id)} />
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const EstimationsView = () => {
+            const [orders, setOrders] = useState([]);
+            const [viewMode, setViewMode] = useState('global');
+
+            useEffect(() => {
+                const unsub = db.collection('orders').onSnapshot(s => {
+                    setOrders(s.docs.map(d => d.data()).filter(o => o.status !== 'ARCHIVADO'));
+                });
+                return () => unsub();
+            }, []);
+
+            const generatePDF = (config) => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                const { data, isOCView, title } = config;
+
+                doc.setFontSize(16); doc.setTextColor(20, 20, 20); doc.text(title || 'Informe de Hilaturas', 14, 20);
+                doc.setFontSize(10); doc.setTextColor(100, 100, 100); doc.text(`Fecha de generación: ${new Date().toLocaleDateString('es-MX')} a las ${new Date().toLocaleTimeString('es-MX')}`, 14, 28);
+
+                if (!isOCView) {
+                    const tableBody = data.map(item => [item.name, item.consumido.toFixed(2), item.restante.toFixed(2), item.total.toFixed(2)]);
+                    const totalConsumido = data.reduce((a, b) => a + b.consumido, 0).toFixed(2);
+                    const totalRestante = data.reduce((a, b) => a + b.restante, 0).toFixed(2);
+                    const totalGran = data.reduce((a, b) => a + b.total, 0).toFixed(2);
+                    
+                    tableBody.push([
+                        { content: 'TOTALES GLOBALES', styles: { fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 23, 42] } },
+                        { content: totalConsumido, styles: { fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 23, 42] } },
+                        { content: totalRestante, styles: { fontStyle: 'bold', fillColor: [254, 243, 199], textColor: [180, 83, 9] } },
+                        { content: totalGran, styles: { fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 23, 42] } }
+                    ]);
+
+                    doc.autoTable({
+                        startY: 35, head: [['Material', 'Ya Consumido (kg)', 'Por Consumir (kg)', 'Gran Total (kg)']],
+                        body: tableBody, theme: 'grid', headStyles: { fillColor: [79, 70, 229] },
+                        columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right', fontStyle: 'bold', textColor: [180, 83, 9] }, 3: { halign: 'right' } }
+                    });
+                    doc.save(`Hilaturas_Global_${new Date().getTime()}.pdf`);
+                } else {
+                    let currentY = 35;
+                    data.forEach((oc) => {
+                        const materials = Object.keys(oc.materials).sort();
+                        if (materials.length === 0) return;
+                        if (currentY > 260) { doc.addPage(); currentY = 20; }
+                        doc.setFontSize(12); doc.setTextColor(30, 41, 59); doc.setFont('helvetica', 'bold');
+                        doc.text(`O.C. / Grupo: ${oc.id}`, 14, currentY);
+                        currentY += 5;
+
+                        const body = materials.map(mat => {
+                            const { consumido, total } = oc.materials[mat];
+                            return [mat, consumido.toFixed(2), Math.max(0, total - consumido).toFixed(2), total.toFixed(2)];
+                        });
+
+                        doc.autoTable({
+                            startY: currentY, head: [['Material', 'Ya Consumido (kg)', 'Por Consumir (kg)', 'Gran Total (kg)']],
+                            body: body, theme: 'grid', headStyles: { fillColor: [37, 99, 235] },
+                            columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right', fontStyle: 'bold', textColor: [180, 83, 9] }, 3: { halign: 'right' } }
+                        });
+                        currentY = doc.lastAutoTable.finalY + 15;
+                    });
+                    doc.save(`Hilaturas_Por_OC_${new Date().getTime()}.pdf`);
+                }
+            };
+
+            return (
+                <div className="flex flex-col h-full pb-20">
+                    <div className="bg-slate-800 border-b border-slate-700 p-2 flex justify-center gap-2 shrink-0 shadow-md">
+                        <button onClick={() => setViewMode('global')} className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-colors flex items-center gap-2 ${viewMode === 'global' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}>
+                           <Icon name="spool" size={16}/> Global
+                        </button>
+                        <button onClick={() => setViewMode('oc')} className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-colors flex items-center gap-2 ${viewMode === 'oc' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}>
+                           <Icon name="folder" size={16}/> Por Orden (O.C.)
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                        {viewMode === 'global' ? <GlobalMaterialsTab orders={orders} onDownload={generatePDF} /> : <OCMaterialsTab orders={orders} onDownload={generatePDF} />}
+                    </div>
+                </div>
+            );
+        };
+
+        // =================================================================
+        // RECEPTOR DE PURGAS DE PRUEBA SOLICITADAS DESDE PLANTA
+        // =================================================================
+        const processPurgeCommand = async commandId => {
+            const commandRef = db.collection('purga_pruebas').doc(commandId);
+            let commandData = null;
+            try {
+                await db.runTransaction(async transaction => {
+                    const commandDoc = await transaction.get(commandRef);
+                    if (!commandDoc.exists || commandDoc.data()?.estado !== 'PENDIENTE') return;
+                    commandData = commandDoc.data();
+                    transaction.update(commandRef, { estado:'PROCESANDO', procesandoPor:'HILATURAS', procesandoEn:firebase.firestore.FieldValue.serverTimestamp() });
+                });
+                if (!commandData) return null;
+
+                const restoreByMaterial = commandData.restaurarPorMaterial || {};
+                const inventoryRef = db.collection('inventory').doc('main');
+                const movementIds = new Set();
+                await db.runTransaction(async transaction => {
+                    const [commandDoc, inventoryDoc] = await Promise.all([transaction.get(commandRef), transaction.get(inventoryRef)]);
+                    if (!commandDoc.exists || commandDoc.data()?.estado !== 'PROCESANDO') return;
+                    if (!inventoryDoc.exists) throw new Error('No existe inventory/main.');
+                    const items = inventoryDoc.data().items || [];
+                    const missingIds = Object.keys(restoreByMaterial).filter(id => !items.some(item => item.id === id));
+                    if (missingIds.length) throw new Error(`Materiales no encontrados en inventario: ${missingIds.join(', ')}`);
+                    let changed = false;
+                    const updatedItems = items.map(item => {
+                        const restore = Number(restoreByMaterial[item.id] || 0);
+                        if (!restore) return item;
+                        changed = true;
+                        const nextStock = Number((Number(item.stock || 0) + restore).toFixed(3));
+                        const movementId = `${commandId}_${item.id}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+                        const movementRef = db.collection('inventory_movements').doc(movementId);
+                        movementIds.add(movementId);
+                        transaction.set(movementRef, {
+                            materialId:item.id, materialName:item.material, color:item.color || '', type:'PURGA_PRUEBA_REINTEGRO', quantityKg:restore, currentStock:nextStock,
+                            date:new Date().toISOString().split('T')[0], timestamp:Date.now(), orderId:commandData.orderId || '', pkgId:(commandData.packageIds || []).join(','), purgaCommandId:commandId,
+                            note:'Reintegro controlado por limpieza de prueba solicitada desde PLANTA.'
+                        });
+                        return {...item, stock:nextStock};
+                    });
+                    if (changed) transaction.update(inventoryRef, {items:updatedItems});
+                    transaction.update(commandRef, { estado:'PROCESADO', procesadoPor:'HILATURAS', procesadoEn:firebase.firestore.FieldValue.serverTimestamp(), restauradoPorMaterial:restoreByMaterial, movementIds:[...movementIds] });
+                });
+                return {movementIds:[...movementIds], restored:restoreByMaterial};
+            } catch (error) {
+                await commandRef.set({ estado:'ERROR', error:String(error?.message || error), procesadoPor:'HILATURAS', errorEn:firebase.firestore.FieldValue.serverTimestamp() }, {merge:true});
+                throw error;
+            }
+        };
+
+        // =================================================================
+        // MAIN APP CONTROLLER
+        // =================================================================
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('inventory');
+            const [inventory, setInventory] = useState([]);
+            const [purgeNotice, setPurgeNotice] = useState('');
+
+            useEffect(() => {
+                const unsub = db.collection('inventory').doc('main').onSnapshot(d => {
+                    if(d.exists) setInventory(d.data().items || []);
+                });
+                return () => unsub();
+            }, []);
+
+            useEffect(() => {
+                const unsub = db.collection('purga_pruebas').where('estado', '==', 'PENDIENTE').onSnapshot(async snap => {
+                    for (const doc of snap.docs) {
+                        try {
+                            const result = await processPurgeCommand(doc.id);
+                            if (result) {
+                                setPurgeNotice(`Purga de prueba procesada: ${Object.keys(result.restored || {}).length} materiales reintegrados.`);
+                                setTimeout(() => setPurgeNotice(''), 6000);
+                            }
+                        } catch (error) {
+                            setPurgeNotice(`Error procesando purga: ${error.message}`);
+                        }
+                    }
+                }, error => setPurgeNotice(`Error escuchando purgas: ${error.message}`));
+                return () => unsub();
+            }, []);
+
+            return (
+                <div className="flex flex-col min-h-screen">
+                    <header className="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-50">
+                        {purgeNotice && <div className="mb-3 rounded-lg border border-amber-500 bg-amber-950/70 px-3 py-2 text-xs font-bold text-amber-200">{purgeNotice}</div>}
+                        <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+                            <Icon name="layers" className="text-indigo-500" size={24}/> LOGÍSTICA HILATURAS
+                        </h1>
+                        <div className="flex gap-2 mt-4 overflow-x-auto no-scrollbar">
+                            <button onClick={()=>setActiveTab('inventory')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${activeTab==='inventory'?'bg-indigo-600 text-white':'bg-slate-800 text-slate-400 hover:text-white'}`}>📦 Inventario Físico</button>
+                            <button onClick={()=>setActiveTab('rouss')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${activeTab==='rouss'?'bg-indigo-600 text-white':'bg-slate-800 text-slate-400 hover:text-white'}`}>🧬 Estructuras</button>
+                            <button onClick={()=>setActiveTab('history')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${activeTab==='history'?'bg-indigo-600 text-white':'bg-slate-800 text-slate-400 hover:text-white'}`}>📉 Bitácora Producción</button>
+                            <button onClick={()=>setActiveTab('estimations')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${activeTab==='estimations'?'bg-indigo-600 text-white':'bg-slate-800 text-slate-400 hover:text-white'}`}>📊 Consumo Estimado</button>
+                        </div>
+                    </header>
+                    <main className="flex-1">
+                        {activeTab === 'inventory' && <InventoryView items={inventory} />}
+                        {activeTab === 'rouss' && <ComposicionView inventoryBase={inventory} />}
+                        {activeTab === 'history' && <HistorialConsumoView />}
+                        {activeTab === 'estimations' && <EstimationsView />}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

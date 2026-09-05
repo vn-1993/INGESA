@@ -1,0 +1,2546 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Gestor de Plantillas Avanzado · MAES</title>
+<meta name="theme-color" content="#eef1e6">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&family=Roboto+Mono:wght@700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          mixtape: {
+            bg: '#eef1e6', card: '#ffffff', input: '#e2e7d6', text: '#14181c',
+            muted: '#4a5568', border: '#14181c', accent: '#0f6b5c', pink: '#e83f6f', green: '#10b981', red: '#e83f6f'
+          },
+          darktheme: {
+            bg: '#0a0e11', card: '#12181d', input: '#1a222a', text: '#eef1e6',
+            muted: '#8899a6', border: '#2f3b44', accent: '#14b8a6', pink: '#f43f5e', green: '#34d399', red: '#f43f5e'
+          }
+        }
+      }
+    }
+  };
+</script>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<!-- Librerías oficiales jsPDF y html2canvas para exportación robusta -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/bwip-js/3.3.0/bwip-js-min.js"></script>
+<style>
+  html, body { 
+    font-family: 'Space Mono', monospace; 
+    -webkit-font-smoothing: antialiased; 
+    margin: 0;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  body:not(.night-mode) { background-color: #eef1e6; color: #14181c; }
+  body:not(.night-mode) .app-card { background: #ffffff; border: 3px solid #14181c; box-shadow: 4px 4px 0 #14181c; }
+  body:not(.night-mode) .app-input { background: #e2e7d6; border: 3px solid #14181c; color: #14181c; }
+  body:not(.night-mode) .app-btn-primary { background: #0f6b5c; color: #ffffff; border: 3px solid #14181c; box-shadow: 4px 4px 0 #14181c; }
+  body:not(.night-mode) .app-btn-secondary { background: #e83f6f; color: #ffffff; border: 3px solid #14181c; box-shadow: 4px 4px 0 #14181c; }
+  body:not(.night-mode) .app-nav { background: rgba(238, 241, 230, 0.95); backdrop-filter: blur(20px); border-bottom: 3px solid #14181c; }
+  body:not(.night-mode) .neo-badge { background: #14181c; color: #eef1e6; border: 2px solid #14181c; }
+  body:not(.night-mode) .neo-border { border-color: #14181c; }
+
+  body.night-mode { background-color: #0b0f12; color: #d1d5db; }
+  body.night-mode .app-card { background: #141c24; border: 3px solid #2a3b4c; box-shadow: 4px 4px 0 #1f2937; }
+  body.night-mode .app-input { background: #1b2631; border: 3px solid #32465a; color: #f3f4f6; }
+  body.night-mode .app-btn-primary { background: #0d9488; color: #ffffff; border: 3px solid #2a3b4c; box-shadow: 3px 3px 0 #000000; }
+  body.night-mode .app-btn-secondary { background: #e11d48; color: #ffffff; border: 3px solid #2a3b4c; box-shadow: 3px 3px 0 #000000; }
+  body.night-mode .app-nav { background: rgba(11, 15, 18, 0.95); backdrop-filter: blur(20px); border-bottom: 3px solid #2a3b4c; }
+  body.night-mode .neo-badge { background: #1f2937; color: #38bdf8; border: 2px solid #374151; }
+  body.night-mode .neo-border { border-color: #2a3b4c; }
+
+  .neo-btn { transition: transform 0.1s ease, box-shadow 0.1s ease; }
+  .neo-btn:active { transform: translate(3px, 3px) !important; box-shadow: 0px 0px 0 #14181c !important; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #14181c; border-radius: 4px; }
+
+  .toggle-checkbox:checked { right: 0; border-color: #10b981; }
+  .toggle-checkbox:checked + .toggle-label { background-color: #10b981; }
+  .toggle-checkbox:checked + .toggle-label:after { transform: translateX(100%); border-color: white; }
+  .toggle-label { width: 44px; height: 24px; background-color: #cbd5e1; border-radius: 9999px; position: relative; cursor: pointer; transition: background-color 0.3s; border: 2px solid #14181c; }
+  .toggle-label:after { content: ''; position: absolute; top: 0px; left: 0px; width: 20px; height: 20px; background-color: white; border-radius: 50%; transition: transform 0.3s; border: 2px solid #14181c; }
+
+  .metallic-btn {
+    background: linear-gradient(135deg, #f5f5f7 0%, #b0b0b5 50%, #86868b 100%);
+    border: 2px solid #14181c;
+    box-shadow: inset 0 1px 2px rgba(255,255,255,0.8), 2px 2px 0 #14181c;
+  }
+  
+  .excel-table { width: 100%; border-collapse: collapse; font-family: 'Roboto Mono', monospace; font-size: 13px; }
+  .excel-table th, .excel-table td { border: 2px solid #000000 !important; padding: 0; position: relative; text-align: center; vertical-align: middle; }
+  
+  .excel-th-percent { background-color: #333333; color: #facc15; font-weight: 900; font-size: 18px; text-shadow: 1px 1px 0px #000; width: 60px; }
+  .excel-th-material { background-color: #ffffff; color: #000000; font-weight: 900; }
+  .excel-th-tech { background-color: #7dd3fc; color: #000000; font-weight: 900; }
+  
+  .excel-input { width: 100%; height: 100%; background: transparent; border: none; outline: none; text-align: center; font-weight: 900; font-family: 'Roboto Mono', monospace; min-height: 36px; text-transform: uppercase; padding: 4px; }
+  .excel-input-percent { color: #facc15; font-size: 18px; text-shadow: 1px 1px 0px #000; }
+  .excel-input-black { color: #000000; }
+  
+  .excel-td-percent { background-color: #333333; }
+  .excel-td-white { background-color: #ffffff; color: #000000; }
+  
+  body.night-mode .excel-table th, body.night-mode .excel-table td { border-color: #000000 !important; }
+
+  @media print {
+    body { background-color: white !important; color: black !important; }
+    @page { margin: 0; size: auto; }
+  }
+
+  input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: #cbd5e1;
+      border-radius: 4px;
+      outline: none;
+      border: 1px solid #14181c;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #0f6b5c;
+      cursor: pointer;
+      border: 2px solid #14181c;
+  }
+</style>
+</head>
+<body class="pb-safe">
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBqHgV4vDat1-VmZfKbiPg7nuiX-ROcexw",
+  authDomain: "cirineo-cec21.firebaseapp.com",
+  projectId: "cirineo-cec21",
+  storageBucket: "cirineo-cec21.firebasestorage.app",
+  messagingSenderId: "620210618284",
+  appId: "1:620210618284:web:482bab9bf74650fff18409"
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const FieldValue = firebase.firestore.FieldValue;
+const DEFAULT_IMAGE_REPO = 'https://raw.githubusercontent.com/sweaters-liliana/MAES2O26/refs/heads/main/IMAGENES/';
+
+const generateId = () => Date.now().toString() + Math.random().toString().substring(2);
+
+const buildKitDefinition = (pieces = [], presentationBySize = {}, kitEnabled = true, globalLabel = '') => {
+  const bySize = {};
+  (Array.isArray(pieces) ? pieces : []).forEach(piece => {
+    const size = String(piece?.talla || 'UNI').trim() || 'UNI';
+    const name = String(piece?.pieza || piece?.descripcion || '').trim().toUpperCase();
+    if (!name) return;
+    if (!bySize[size]) bySize[size] = new Set();
+    bySize[size].add(name);
+  });
+  const sizes = Object.entries(bySize).map(([talla, names]) => {
+    const piezas = [...names].sort();
+    const previous = presentationBySize?.[talla] || {};
+    const completeUnitsPerKit = Math.max(0, Math.floor(Number(previous.completeUnitsPerKit || 0)));
+    const yieldPerLienzo = piezas.reduce((acc, pieceName) => {
+      const configured = Number(previous.yieldPerLienzo?.[pieceName]);
+      return { ...acc, [pieceName]: Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 1 };
+    }, {});
+    const componentLienzosPerKit = piezas.reduce((acc, pieceName) => ({ ...acc, [pieceName]: completeUnitsPerKit ? Math.ceil(completeUnitsPerKit / yieldPerLienzo[pieceName]) : 0 }), {});
+    return {
+      talla,
+      piezas,
+      cantidadPiezas: names.size,
+      presentation: {
+        displayLabel: String(globalLabel || previous.displayLabel || piezas[0] || '').trim().toUpperCase(),
+        completeUnitsPerKit,
+        yieldPerLienzo,
+        componentLienzosPerKit
+      }
+    };
+  });
+  const kitSizes = sizes.filter(item => item.cantidadPiezas > 1);
+  const normalizedPresentationBySize = kitSizes.reduce((acc, item) => ({ ...acc, [item.talla]: item.presentation }), {});
+  return {
+    kitEnabled: Boolean(kitEnabled),
+    productionMode: kitEnabled && kitSizes.length ? 'KIT' : 'INDIVIDUAL',
+    kitEligibleSizes: kitEnabled ? kitSizes.map(item => item.talla) : [],
+    kitDefinition: { version: 4, enabled: Boolean(kitEnabled), globalLabel, sizes, presentationBySize: normalizedPresentationBySize, requiresManualGrouping: false }
+  };
+};
+
+const formatTimeDisplay = (val) => {
+    if (!val || isNaN(val)) return '0:00';
+    const total = parseFloat(val);
+    const m = Math.floor(total);
+    const s = Math.round((total - m) * 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+};
+
+const compressImageForStorage = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX_W = 500, MAX_H = 1344;
+      let w = img.width, h = img.height;
+      if (w > MAX_W || h > MAX_H) {
+        const ratio = Math.min(MAX_W / w, MAX_H / h);
+        w = Math.round(w * ratio); h = Math.round(h * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.onerror = reject;
+    img.src = e.target.result;
+  };
+  reader.onerror = reject;
+  reader.readAsDataURL(file);
+});
+
+const ImageCropperModal = ({ src, onSave, onClose }) => {
+    const canvasRef = useRef(null);
+    const [scale, setScale] = useState(1);
+    const [offsetX, setOffsetX] = useState(50);
+    const [offsetY, setOffsetY] = useState(50);
+    const [imgObj, setImgObj] = useState(null);
+
+    useEffect(() => {
+        const img = new Image();
+        img.onload = () => setImgObj(img);
+        img.src = src;
+    }, [src]);
+
+    useEffect(() => {
+        if (!imgObj || !canvasRef.current) return;
+        const ctx = canvasRef.current.getContext('2d');
+        const cWidth = canvasRef.current.width;
+        const cHeight = canvasRef.current.height;
+        
+        ctx.clearRect(0, 0, cWidth, cHeight);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, cWidth, cHeight);
+
+        const scaledW = imgObj.width * scale;
+        const scaledH = imgObj.height * scale;
+        
+        const dx = (cWidth - scaledW) * (offsetX / 100);
+        const dy = (cHeight - scaledH) * (offsetY / 100);
+
+        ctx.drawImage(imgObj, dx, dy, scaledW, scaledH);
+    }, [imgObj, scale, offsetX, offsetY]);
+
+    const handleSave = () => {
+        if (!canvasRef.current) return;
+        const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.8);
+        onSave(dataUrl);
+    };
+
+    return (
+        <div className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 flex-col">
+            <div className="app-card w-full max-w-md p-4 rounded-3xl relative flex flex-col items-center">
+                <button onClick={onClose} className="absolute top-4 right-4 text-xl font-bold opacity-70 hover:opacity-100 text-red-500">❌</button>
+                <h3 className="font-black mb-4 uppercase">Encuadrar Imagen</h3>
+                
+                <div className="border-4 border-black border-dashed overflow-hidden rounded-xl mb-4 bg-gray-200">
+                    <canvas ref={canvasRef} width="300" height="300" className="max-w-full h-auto bg-white"></canvas>
+                </div>
+                
+                <div className="w-full space-y-4 mb-4">
+                    <div>
+                        <label className="text-[10px] font-black uppercase opacity-70">Zoom (Escala)</label>
+                        <input type="range" min="0.1" max="3" step="0.05" value={scale} onChange={e => setScale(parseFloat(e.target.value))} />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black uppercase opacity-70">Posición Horizontal (X)</label>
+                        <input type="range" min="0" max="100" value={offsetX} onChange={e => setOffsetX(parseFloat(e.target.value))} />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black uppercase opacity-70">Posición Vertical (Y)</label>
+                        <input type="range" min="0" max="100" value={offsetY} onChange={e => setOffsetY(parseFloat(e.target.value))} />
+                    </div>
+                </div>
+
+                <button onClick={handleSave} className="w-full app-btn-primary font-black py-3 rounded-xl neo-btn">
+                    Recortar y Guardar
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const SmartImage = ({ codigo, className, editable = true }) => {
+  const [imgSrc, setImgSrc] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isShared, setIsShared] = useState(false);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!codigo) { setLoading(false); return; }
+    const unsub = db.collection('imagenes_editadas').doc(codigo).onSnapshot(doc => {
+      const localImg = doc.exists ? doc.data().localImage : null;
+      if (localImg) { setImgSrc(localImg); setIsShared(true); setLoading(false); return; }
+      setIsShared(false);
+      const base = DEFAULT_IMAGE_REPO.endsWith('/') ? DEFAULT_IMAGE_REPO : DEFAULT_IMAGE_REPO + '/';
+      const extensiones = ['.jpg', '.png', '.jpeg', '.webp'];
+      let index = 0;
+      const probarImagen = () => {
+        if (index >= extensiones.length) { setImgSrc(null); setLoading(false); return; }
+        const testImg = new Image();
+        testImg.onload = () => { setImgSrc(testImg.src); setLoading(false); };
+        testImg.onerror = () => { index++; probarImagen(); };
+        testImg.src = `${base}${codigo}${extensiones[index]}`;
+      };
+      probarImagen();
+    });
+    return () => unsub();
+  }, [codigo]);
+
+  const handleLocalUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const dataUrl = await compressImageForStorage(file);
+      await db.collection('imagenes_editadas').doc(codigo).set({ localImage: dataUrl, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      setImgSrc(dataUrl); setIsShared(true);
+    } catch (err) { alert('Error al subir imagen: ' + err.message); }
+    e.target.value = '';
+  };
+
+  return (
+    <div className="relative inline-block w-full h-full">
+      {imgSrc ? (
+        <img src={imgSrc} onError={() => setImgSrc(null)} className={className} alt={codigo} />
+      ) : (
+        <div className={`flex flex-col items-center justify-center bg-gray-200 dark:bg-gray-800 text-gray-500 ${className}`}>
+          <span className="text-2xl">🚫</span>
+          <span className="text-[9px] mt-1 font-bold tracking-wide uppercase">Sin Imagen</span>
+        </div>
+      )}
+      {editable && isShared && (
+        <div className="absolute top-2 left-2 bg-emerald-600 text-white text-[8px] font-black px-2 py-0.5 rounded border-2 border-black z-10 shadow-sm">
+          ✅ Compartida
+        </div>
+      )}
+      {editable && <div className="absolute bottom-0 right-0 w-11 h-11 bg-white dark:bg-gray-800 rounded-tl-2xl flex items-center justify-center z-10 border-t-3 border-l-3 neo-border">
+        <input type="file" accept="image/*" onChange={handleLocalUpload} className="hidden" ref={fileInputRef} />
+        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if(codigo) fileInputRef.current.click(); else alert("Escribe un código primero"); }} type="button" className={`w-7 h-7 rounded-full flex items-center justify-center metallic-btn transition-all duration-300`}>
+          <span className="text-[10px]">📤</span>
+        </button>
+      </div>
+      }
+    </div>
+  );
+};
+
+const Pdf417Preview = ({ value }) => {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    if (!canvasRef.current || !value || typeof bwipjs === 'undefined') return;
+    try { bwipjs.toCanvas(canvasRef.current, { bcid: 'pdf417', text: value, scale: 2, height: 10, includetext: false }); } catch (error) { console.warn('PDF417 preview no disponible', error); }
+  }, [value]);
+  return <canvas ref={canvasRef} className="w-full h-auto" aria-label="Código PDF417 de vista previa" />;
+};
+
+const KitLabelPreview = ({ codigo, cliente, talla, partida, displayLabel, displayQuantity, components, totalWeight }) => {
+  const barcodeValue = `PREVIEW_${String(codigo || 'MODELO').toUpperCase()}_${String(talla || 'UNI').toUpperCase()}`;
+  return <div className="w-full overflow-hidden rounded-xl border-[3px] border-black bg-white text-black shadow-[5px_5px_0_rgba(0,0,0,.3)]">
+    <div className="aspect-[3/2] min-h-[250px] flex font-mono">
+      <div className="w-[24%] shrink-0 overflow-hidden border-r-[3px] border-black bg-slate-100"><SmartImage codigo={codigo} editable={false} className="w-full h-full object-cover object-center grayscale" /></div>
+      <div className="w-[58%] min-w-0 flex flex-col">
+        <div className="grid grid-cols-[28%_42%_30%] min-h-[18%] border-b-[3px] border-black"><div className="border-r-[3px] border-black px-2 py-2 flex items-center text-xl font-black truncate">{codigo || 'MODELO'}</div><div className="border-r-[3px] border-black px-2 py-2 flex items-center text-[10px] font-black uppercase leading-tight break-words">{cliente || 'CLIENTE'}</div><div className="px-2 py-2 flex items-center justify-end text-sm font-black text-right">{partida}</div></div>
+        <div className="bg-black py-2 text-center text-2xl font-black tracking-wide text-white">MAES</div>
+        <div className="flex-1 min-h-0 divide-y-[2px] divide-black border-b-[3px] border-black">
+          {components.map((component, index) => <div key={`${component.pieceName}-${index}`} className="grid grid-cols-[18%_1fr_16%] min-h-[42px] items-center gap-1 px-2"><div className="text-2xl leading-none font-black">{component.quantity}</div><div className="min-w-0"><div className="text-[8px] font-bold uppercase">Componente {String(index + 1).padStart(2, '0')}</div><div className="text-[11px] font-black leading-tight uppercase truncate">{component.pieceName}</div><div className="text-[8px] font-bold text-slate-600">{component.subtotal.toFixed(1)} g</div></div><div className="border-l-2 border-black pl-1 text-center"><div className="text-[7px] font-bold uppercase">Maq</div><div className="text-lg font-black leading-none">{component.maquina}</div></div></div>)}
+        </div>
+        <div className="min-h-[18%] bg-slate-100 px-2 py-2 flex flex-col items-center justify-center text-center">
+            <div className="text-[8px] font-bold uppercase">TOTAL ORDEN: {displayQuantity * 2} {displayLabel || 'BLUSAS COMPLETAS'}</div>
+            <div className="text-base font-black uppercase leading-tight">ESTE PAQUETE CONTIENE: {displayQuantity} {displayLabel || 'BLUSAS COMPLETAS'}</div>
+        </div>
+      </div>
+      <div className="w-[18%] shrink-0 border-l-[3px] border-black flex items-center justify-center overflow-hidden p-1"><div className="w-[220px] -rotate-90"><Pdf417Preview value={barcodeValue} /></div></div>
+    </div>
+  </div>;
+};
+
+const MaterialInput = ({ value, onSelect, onChangeText, inventory }) => {
+  const [suggestions, setSuggestions] = useState([]);
+  const [open, setOpen] = useState(false);
+  const handleInput = (val) => { 
+    onChangeText(val); 
+    if(val.length > 1){ 
+      setSuggestions(inventory.filter(i => `${i.material} ${i.color}`.toLowerCase().includes(val.toLowerCase()))); 
+      setOpen(true); 
+    } else setOpen(false); 
+  };
+  return (
+    <div className="relative">
+      <input 
+        value={value} 
+        onChange={e => handleInput(e.target.value)} 
+        onFocus={() => value.length > 1 && setOpen(true)} 
+        placeholder="Buscar hilo..." 
+        className="w-full app-input rounded-xl p-2.5 text-xs font-bold outline-none"
+      />
+      {open && suggestions.length > 0 && (
+        <div className="absolute z-30 app-card shadow-2xl w-full max-h-48 overflow-y-auto mt-1 rounded-xl">
+          {suggestions.map(item => (
+            <div key={item.id} onClick={() => { onSelect(item); setOpen(false); }} className="p-3 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer border-b border-gray-300 dark:border-gray-700 flex justify-between items-center last:border-0">
+              <div className="truncate pr-2">
+                <span className="font-bold text-xs">{item.material}</span>
+                <span className="opacity-70 text-[10px] ml-1.5 uppercase">{item.color}</span>
+              </div>
+              <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded text-[9px] font-black shrink-0">{item.stock||0}kg</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ExcelTableEditor = ({ data, onChange }) => {
+    const addGroup = () => {
+        onChange([...data, { id: generateId(), percent: '', material: '', guias: [{ id: generateId(), guia: '', sis: '' }] }]);
+    };
+    
+    const addSubRow = (groupId) => {
+        onChange(data.map(g => {
+            if (g.id === groupId) {
+                return { ...g, guias: [...g.guias, { id: generateId(), guia: '', sis: '' }] };
+            }
+            return g;
+        }));
+    };
+    
+    const updateGroup = (groupId, field, value) => {
+        onChange(data.map(g => g.id === groupId ? { ...g, [field]: value } : g));
+    };
+    
+    const updateSubRow = (groupId, subId, field, value) => {
+        onChange(data.map(g => {
+            if (g.id === groupId) {
+                return { ...g, guias: g.guias.map(sub => sub.id === subId ? { ...sub, [field]: value } : sub) };
+            }
+            return g;
+        }));
+    };
+    
+    const removeSubRow = (groupId, subId) => {
+        let newData = [...data];
+        const groupIdx = newData.findIndex(g => g.id === groupId);
+        if (groupIdx > -1) {
+            const group = newData[groupIdx];
+            if (group.guias.length === 1) {
+                newData.splice(groupIdx, 1);
+            } else {
+                newData[groupIdx] = { ...group, guias: group.guias.filter(sub => sub.id !== subId) };
+            }
+        }
+        onChange(newData);
+    };
+
+    return (
+        <div className="w-full overflow-x-auto rounded border-[3px] border-black bg-white shadow-[4px_4px_0_#14181c]">
+            <table className="excel-table">
+                <thead>
+                    <tr>
+                        <th className="excel-th-percent py-2">%</th>
+                        <th className="excel-th-material py-2 w-1/3">MATERIAL</th>
+                        <th className="excel-th-tech py-2 w-20">G.HILO</th>
+                        <th className="excel-th-tech py-2">SIS.</th>
+                        <th className="bg-transparent border-0 w-16"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {data.map((group) => (
+                        <React.Fragment key={group.id}>
+                            {group.guias.map((g, subIdx) => (
+                                <tr key={g.id}>
+                                    {subIdx === 0 && (
+                                        <>
+                                            <td rowSpan={group.guias.length} className="excel-td-percent">
+                                                <input value={group.percent} onChange={e => updateGroup(group.id, 'percent', e.target.value)} placeholder="0" className="excel-input excel-input-percent"/>
+                                            </td>
+                                            <td rowSpan={group.guias.length} className="excel-td-white">
+                                                <textarea value={group.material} onChange={e => updateGroup(group.id, 'material', e.target.value)} placeholder="Ej. NYLON" className="excel-input excel-input-black resize-none overflow-hidden block" rows="2"></textarea>
+                                            </td>
+                                        </>
+                                    )}
+                                    <td className="excel-td-white">
+                                         <input value={g.guia} onChange={e => updateSubRow(group.id, g.id, 'guia', e.target.value)} placeholder="#2" className="excel-input excel-input-black" />
+                                    </td>
+                                    <td className="excel-td-white">
+                                         <input value={g.sis} onChange={e => updateSubRow(group.id, g.id, 'sis', e.target.value)} placeholder="TODOS" className="excel-input excel-input-black" />
+                                    </td>
+                                    <td className="border-0 p-1 bg-transparent">
+                                        <div className="flex flex-col gap-1 items-center justify-center">
+                                            {subIdx === 0 && (
+                                                <button onClick={() => addSubRow(group.id)} className="bg-blue-500/20 text-blue-600 rounded p-1 hover:bg-blue-500/40" title="Agrupar sub-fila">➕</button>
+                                            )}
+                                            <button onClick={() => removeSubRow(group.id, g.id)} className="bg-red-500/20 text-red-600 rounded p-1 hover:bg-red-500/40" title="Borrar">🗑️</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </React.Fragment>
+                    ))}
+                </tbody>
+            </table>
+            <button onClick={addGroup} className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-black font-black text-xs transition-colors flex items-center justify-center gap-2">
+                ➕ Añadir Hilo Principal
+            </button>
+        </div>
+    );
+};
+
+const emptyGlobalThread = () => ({ material: '', porcentaje: '', materialId: null });
+
+const GlobalThreadingList = ({ threading, setThreading, inventory }) => {
+  const update = (i, field, val) => { const n = [...threading]; n[i] = { ...n[i], [field]: val }; setThreading(n); };
+  const selectMat = (i, item) => { const n = [...threading]; n[i] = { ...n[i], material: `${item.material} - ${item.color}`, materialId: item.id }; setThreading(n); };
+  const remove = (i) => setThreading(threading.filter((_, idx) => idx !== i));
+  return (
+    <div className="space-y-4">
+      {threading.map((h, i) => (
+        <div key={i} className="app-card rounded-2xl p-4 border-2 border-black/10 dark:border-white/10 shadow-sm flex flex-col gap-3">
+          <div className="flex justify-between items-center border-b-2 border-black/10 dark:border-white/10 pb-2">
+             <span className="font-black text-xs bg-[#14181c] dark:bg-white dark:text-black text-white px-2 py-1 rounded">CONSUMO GLOBAL {i + 1}</span>
+             <button onClick={() => remove(i)} className="text-red-500 hover:bg-red-500/10 px-2 py-1 rounded-lg transition-colors text-lg" title="Eliminar hilo">🗑️</button>
+          </div>
+          <div className="grid grid-cols-6 gap-3">
+            <div className="col-span-4">
+                <label className="text-[10px] font-black opacity-70 ml-0.5 mb-1 block uppercase">Material / Hilo</label>
+                <MaterialInput value={h.material || h.hilo || ''} inventory={inventory} onChangeText={val => update(i, 'material', val)} onSelect={item => selectMat(i, item)}/>
+            </div>
+            <div className="col-span-2">
+                <label className="text-[10px] font-black opacity-70 ml-0.5 mb-1 block uppercase">% Inventario</label>
+                <input type="number" step="0.01" value={h.porcentaje} onChange={e => update(i, 'porcentaje', e.target.value)} placeholder="0" className="w-full text-center app-input rounded-xl p-2.5 text-xs font-bold outline-none text-emerald-600 dark:text-emerald-400"/>
+            </div>
+          </div>
+        </div>
+      ))}
+      <button onClick={() => setThreading([...threading, emptyGlobalThread()])} className="w-full py-3 app-btn-primary rounded-xl font-bold text-xs neo-btn flex justify-center items-center gap-1.5">
+        ➕ Añadir Material de Consumo
+      </button>
+    </div>
+  );
+};
+
+const PinModal = ({ onSuccess, onClose }) => {
+    const [pin, setPin] = useState('');
+    const [error, setError] = useState(false);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (pin === '13524680') { onSuccess(); } else { setError(true); setPin(''); }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[400] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="app-card w-full max-w-sm rounded-3xl p-6 relative">
+                <button onClick={onClose} type="button" className="absolute top-4 right-4 font-bold text-xl opacity-70 hover:opacity-100">❌</button>
+                <div className="flex flex-col items-center mb-6 text-center">
+                    <div className="w-14 h-14 rounded-full bg-red-500/10 border-2 border-red-500 flex items-center justify-center mb-3"><span className="text-2xl">🔒</span></div>
+                    <h3 className="text-xl font-black">Acceso Restringido</h3>
+                    <p className="text-xs font-bold opacity-70 mt-1">Ingrese el PIN de administrador</p>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <input type="password" inputMode="numeric" value={pin} onChange={e => { setPin(e.target.value); setError(false); }} placeholder="••••••••" className={`w-full p-4 app-input rounded-xl text-center text-2xl tracking-[0.4em] outline-none font-mono ${error ? 'border-red-500 text-red-500' : ''}`} autoFocus />
+                        {error && <p className="text-red-500 text-xs font-bold text-center mt-2">PIN Incorrecto</p>}
+                    </div>
+                    <button type="submit" className="w-full app-btn-primary font-bold py-3.5 rounded-xl neo-btn">Desbloquear</button>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+const PdfTemplateManagerModal = ({ onClose, currentTemplateId, onSelectTemplate }) => {
+    const [templates, setTemplates] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [editingNode, setEditingNode] = useState(null);
+
+    const defaultHtml = `<div class="w-[11cm] border-[2px] border-black flex flex-row bg-white text-black font-sans box-border" style="page-break-inside: avoid;">
+   <div class="w-[2cm] border-r-[2px] border-black flex flex-col items-center justify-center py-4 relative overflow-hidden shrink-0">
+       {{logo}}
+   </div>
+   <div class="flex-1 flex flex-col text-[11px] font-bold tracking-wide uppercase">
+       <div class="flex border-b-[2px] border-black min-h-[32px]"><div class="w-[45%] border-r-[2px] border-black p-1.5 flex items-center">PROVEEDOR</div><div class="flex-1 p-1.5 flex items-center justify-center text-center">{{proveedor}}</div></div>
+       <div class="flex border-b-[2px] border-black min-h-[32px]"><div class="w-[45%] border-r-[2px] border-black p-1.5 flex items-center">ESTILO</div><div class="flex-1 p-1.5 flex items-center justify-center text-center">{{estilo}}</div></div>
+       <div class="flex border-b-[2px] border-black min-h-[32px]"><div class="w-[45%] border-r-[2px] border-black p-1.5 flex items-center">TALLA</div><div class="flex-1 p-1.5 flex items-center justify-center text-center text-lg font-black">{{talla}}</div></div>
+       <div class="flex border-b-[2px] border-black min-h-[32px]"><div class="w-[45%] border-r-[2px] border-black p-1.5 flex items-center">TELA</div><div class="flex-1 p-1.5 flex items-center justify-center text-center">{{tela}}</div></div>
+       <div class="flex border-b-[2px] border-black min-h-[48px]"><div class="w-[45%] border-r-[2px] border-black p-1.5 flex items-center">COMPOSICIÓN</div><div class="flex-1 p-1.5 flex items-center justify-center text-center leading-tight whitespace-pre-wrap">{{composicion}}</div></div>
+       <div class="flex border-b-[2px] border-black min-h-[32px]"><div class="w-[45%] border-r-[2px] border-black p-1.5 flex items-center">MUESTRA</div><div class="flex-1 p-1.5 flex items-center justify-center text-center">{{muestra}}</div></div>
+       <div class="flex min-h-[32px]"><div class="w-[45%] border-r-[2px] border-black p-1.5 flex items-center">FECHA</div><div class="flex-1 p-1.5 flex items-center justify-center text-center">{{fecha}}</div></div>
+   </div>
+</div>`;
+
+    useEffect(() => {
+        db.collection('TEMPLATE-BETA').get().then(snap => {
+            const data = [];
+            snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+            setTemplates(data);
+            setLoading(false);
+        });
+    }, []);
+
+    const handleSaveTemplate = async (template) => {
+        if (!template.nombre.trim()) return alert("El nombre es requerido");
+        try {
+            if (template.id) {
+                await db.collection('TEMPLATE-BETA').doc(template.id).set({ nombre: template.nombre, html: template.html }, { merge: true });
+                setTemplates(templates.map(t => t.id === template.id ? template : t));
+            } else {
+                const res = await db.collection('TEMPLATE-BETA').add({ nombre: template.nombre, html: template.html });
+                setTemplates([...templates, { id: res.id, ...template }]);
+            }
+            setEditingNode(null);
+        } catch (e) { alert("Error guardando plantilla"); }
+    };
+
+    const handleDeleteTemplate = async (id) => {
+        if(!confirm("¿Eliminar plantilla?")) return;
+        try {
+            await db.collection('TEMPLATE-BETA').doc(id).delete();
+            setTemplates(templates.filter(t => t.id !== id));
+            if (currentTemplateId === id) onSelectTemplate(null);
+        } catch(e) {}
+    };
+
+    return (
+        <div className="fixed inset-0 z-[400] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="app-card w-full max-w-4xl h-[90vh] rounded-3xl relative flex flex-col p-6 shadow-2xl overflow-hidden border-[3px] border-emerald-500">
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400">TEMPLATE-BETA</h3>
+                        <p className="text-xs font-bold opacity-70 mt-1">Gestor de diseños HTML para impresión PDF</p>
+                    </div>
+                    <button onClick={onClose} className="text-2xl opacity-70 hover:opacity-100">❌</button>
+                </div>
+
+                {editingNode ? (
+                    <div className="flex-1 flex flex-col min-h-0">
+                        <div className="flex gap-4 mb-4">
+                            <input value={editingNode.nombre} onChange={e=>setEditingNode({...editingNode, nombre: e.target.value})} placeholder="Nombre de la Variante (Ej. Etiqueta Pequeña)" className="flex-1 p-3 app-input rounded-xl font-bold"/>
+                            <button onClick={() => setEditingNode({...editingNode, html: defaultHtml})} className="app-btn-secondary px-4 py-2 rounded-xl font-black text-xs neo-btn">Cargar Base</button>
+                        </div>
+                        <p className="text-[10px] font-bold opacity-70 mb-2">Variables disponibles: {'{{proveedor}}, {{estilo}}, {{talla}}, {{tela}}, {{composicion}}, {{muestra}}, {{fecha}}, {{logo}}'}</p>
+                        <textarea 
+                            value={editingNode.html} 
+                            onChange={e=>setEditingNode({...editingNode, html: e.target.value})}
+                            className="flex-1 w-full p-4 app-input rounded-xl font-mono text-[10px] resize-none mb-4 whitespace-pre border-2 border-black/20 dark:border-white/20 outline-none"
+                            placeholder="Pega el código HTML provisto por la IA aquí..."
+                        ></textarea>
+                        <div className="flex gap-4">
+                            <button onClick={() => handleSaveTemplate(editingNode)} className="flex-1 app-btn-primary font-black py-3 rounded-xl neo-btn">Guardar Variante</button>
+                            <button onClick={() => setEditingNode(null)} className="flex-1 bg-gray-500 text-white font-black py-3 rounded-xl neo-btn">Cancelar</button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex-1 overflow-y-auto space-y-4">
+                        <div className="flex justify-between items-center bg-emerald-500/10 p-4 rounded-xl border-2 border-emerald-500/30">
+                            <span className="font-black">Plantilla por Defecto (Sistema)</span>
+                            <button onClick={() => onSelectTemplate(null)} className={`px-4 py-2 rounded-xl font-black text-xs border-2 border-black neo-btn ${!currentTemplateId ? 'bg-emerald-500 text-white' : 'bg-white text-black'}`}>
+                                {!currentTemplateId ? '✅ Activa' : 'Seleccionar'}
+                            </button>
+                        </div>
+                        {loading ? <div className="text-center py-10 font-black">Cargando...</div> : templates.map(t => (
+                            <div key={t.id} className="app-input p-4 rounded-xl border-2 neo-border flex flex-col sm:flex-row justify-between items-center gap-4">
+                                <span className="font-black text-lg">{t.nombre}</span>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setEditingNode(t)} className="bg-blue-500 text-white px-3 py-2 rounded-xl font-black text-xs neo-btn">Editar Código</button>
+                                    <button onClick={() => handleDeleteTemplate(t.id)} className="bg-red-500 text-white px-3 py-2 rounded-xl font-black text-xs neo-btn">🗑️</button>
+                                    <button onClick={() => onSelectTemplate(t.id)} className={`px-4 py-2 rounded-xl font-black text-xs border-2 border-black neo-btn ${currentTemplateId === t.id ? 'bg-emerald-500 text-white' : 'bg-white text-black dark:bg-gray-800 dark:text-white'}`}>
+                                        {currentTemplateId === t.id ? '✅ Activa' : 'Seleccionar'}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        <button onClick={() => setEditingNode({ nombre: '', html: defaultHtml })} className="w-full border-4 border-dashed neo-border p-4 rounded-xl font-black opacity-70 hover:opacity-100 mt-4 transition-opacity">
+                            ➕ Añadir Nueva Variante HTML
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const CustomizerModal = ({ onClose }) => {
+    return (
+        <div className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="app-card w-full max-w-sm rounded-3xl p-6 relative">
+                <h3 className="text-xl font-black mb-4">🎨 Personalización</h3>
+                <p className="text-xs font-bold opacity-70 mb-6">Panel de control de interfaz desbloqueado. Próximamente podrás modificar las fuentes y variables CSS desde aquí.</p>
+                <div className="space-y-3">
+                    <button onClick={onClose} className="w-full app-btn-primary font-bold py-3 rounded-xl neo-btn">Cerrar Ajustes</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ClientConfigModal = ({ cliente, logoData, onClose, onSave, onDelete }) => {
+    const [url, setUrl] = useState(logoData?.logoUrl || logoData?.logoSVG || '');
+    const [bg, setBg] = useState(logoData?.logoBg || '#ffffff');
+    const [pdfUrl, setPdfUrl] = useState(logoData?.pdfLogoUrl || '');
+    const [saving, setSaving] = useState(false);
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const payload = { logoUrl: url, logoBg: bg, pdfLogoUrl: pdfUrl };
+            await db.collection('clientes').doc(cliente).set(payload, { merge: true });
+            onSave(cliente, payload);
+            onClose();
+        } catch (e) { alert('Error guardando configuración'); }
+        setSaving(false);
+    };
+
+    return (
+        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+            <div className="app-card w-full max-w-md rounded-3xl p-6 relative my-auto">
+                <button onClick={onClose} className="absolute top-4 right-4 font-bold text-xl opacity-70 hover:opacity-100">❌</button>
+                <h3 className="text-xl font-black mb-6">Editar Cliente<br/><span className="text-[#0f6b5c] dark:text-[#34d399]">{cliente}</span></h3>
+                
+                <div className="space-y-4 mb-6">
+                    <div>
+                        <label className="text-xs font-black uppercase tracking-wide ml-1 opacity-70">Logo Principal (URL)</label>
+                        <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://ejemplo.com/logo.png" className="w-full p-3 app-input rounded-xl mt-1 outline-none text-sm font-bold" />
+                    </div>
+                    <div>
+                        <label className="text-xs font-black uppercase tracking-wide ml-1 mb-1 block opacity-70">Color de Fondo (Icono)</label>
+                        <div className="flex items-center gap-3 mt-1">
+                            <input type="color" value={bg} onChange={e => setBg(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer app-input p-1" />
+                            <input type="text" value={bg} onChange={e => setBg(e.target.value)} className="flex-1 p-3 app-input rounded-xl uppercase text-sm outline-none font-mono font-bold" />
+                        </div>
+                    </div>
+                    
+                    <div className="border-t-2 border-black/10 dark:border-white/10 pt-4 mt-4">
+                        <label className="text-xs font-black uppercase tracking-wide ml-1 opacity-70 text-blue-600 dark:text-blue-400">Logo Secundario (Solo PDF)</label>
+                        <p className="text-[10px] font-bold opacity-60 ml-1 mb-2">Idealmente en proporciones adecuadas para sustituir el lateral "OPTIMA".</p>
+                        <input value={pdfUrl} onChange={e => setPdfUrl(e.target.value)} placeholder="URL de logo para PDF..." className="w-full p-3 app-input rounded-xl outline-none text-sm font-bold" />
+                    </div>
+
+                    <div className="mt-4 flex justify-center items-center gap-4">
+                        <div className="w-24 h-24 rounded-2xl flex items-center justify-center overflow-hidden border-[3px] border-black shadow-inner" style={{ backgroundColor: bg }}>
+                            {url ? <img src={url} className="w-full h-full object-contain p-2" /> : <span className="text-[10px] font-bold text-black/50 text-center">MAIN<br/>PREVIA</span>}
+                        </div>
+                        <div className="w-12 h-24 bg-white border-[3px] border-black shadow-inner flex items-center justify-center overflow-hidden relative">
+                            {pdfUrl ? <img src={pdfUrl} className="max-w-[200%] max-h-[200%] transform -rotate-90 object-contain" /> : <span className="text-[10px] font-bold text-black/50 text-center -rotate-90">PDF<br/>PREVIA</span>}
+                        </div>
+                    </div>
+                </div>
+                <div className="flex flex-col gap-3">
+                    <button onClick={handleSave} disabled={saving} className="w-full app-btn-primary font-bold py-3 rounded-xl neo-btn disabled:opacity-50">Guardar Cambios</button>
+                    <button onClick={() => { onClose(); onDelete(cliente); }} className="w-full text-white font-bold py-3 rounded-xl bg-red-600 border-[3px] border-black neo-btn">🗑️ Eliminar Todo</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ClientCard = ({ cliente, logoData, onClick, onEdit, viewMode, modelCount }) => {
+    const bg = logoData?.logoBg || '#ffffff';
+    const src = logoData?.logoUrl || logoData?.logoSVG || null;
+    const timerRef = useRef(null);
+    
+    const handleTouchStart = () => { timerRef.current = setTimeout(() => { onEdit(); timerRef.current = null; }, 5000); };
+    const cancelTouch = () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } };
+
+    const Folder3D = ({ className = "" }) => (
+        <div className={`relative [perspective:1500px] group ${className}`}>
+            <div className="absolute bottom-0 w-full h-[90%] bg-slate-800 dark:bg-slate-700 rounded-b-2xl rounded-tr-2xl border-[3px] border-black shadow-[4px_4px_0_#14181c] dark:shadow-[4px_4px_0_#000]">
+                <div className="absolute -top-[18%] left-[-3px] w-[40%] h-[20%] bg-slate-800 dark:bg-slate-700 rounded-t-2xl border-t-[3px] border-l-[3px] border-r-[3px] border-black border-b-0"></div>
+                <div className="absolute bottom-2 left-2 right-2 top-2 bg-white rounded border-2 border-gray-300 shadow-inner flex flex-col items-center justify-center transition-transform duration-300 group-hover:-translate-y-4 group-hover:rotate-2">
+                    <span className="text-sm font-black text-black leading-tight text-center">{cliente}</span>
+                    <span className="text-[9px] font-bold text-gray-500 uppercase mt-1">{modelCount} mod</span>
+                </div>
+                <div className="absolute bottom-0 left-0 w-full h-full rounded-2xl border-[3px] border-black origin-bottom transition-all duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateX(-40deg)] z-10 flex items-center justify-center overflow-hidden" style={{ backgroundColor: bg }}>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
+                    {src ? (
+                        <img src={src} className="w-2/3 h-2/3 object-contain drop-shadow-xl [transform:translateZ(20px)] pointer-events-none" alt={cliente} />
+                    ) : (
+                        <span className="text-3xl font-black mix-blend-difference text-white [transform:translateZ(20px)] pointer-events-none">{cliente.substring(0,2)}</span>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+
+    if (viewMode === 'list') {
+        return (
+            <div onClick={onClick} onMouseDown={handleTouchStart} onMouseUp={cancelTouch} onMouseLeave={cancelTouch} onTouchStart={handleTouchStart} onTouchEnd={cancelTouch} onTouchMove={cancelTouch} onTouchCancel={cancelTouch} className="cursor-pointer app-card rounded-[1.5rem] p-3 flex items-center gap-4 neo-btn border-[3px]">
+                <Folder3D className="w-24 aspect-[5/4] shrink-0" />
+                <div className="flex-1 min-w-0">
+                    <h3 className="font-black text-xl uppercase truncate">{cliente}</h3>
+                    <p className="text-xs font-bold opacity-70">{modelCount} Modelos Registrados</p>
+                </div>
+                <div className="pr-4 text-2xl opacity-50">📂</div>
+            </div>
+        );
+    }
+
+    if (viewMode === 'compact') {
+        return (
+            <div onClick={onClick} onMouseDown={handleTouchStart} onMouseUp={cancelTouch} onMouseLeave={cancelTouch} onTouchStart={handleTouchStart} onTouchEnd={cancelTouch} onTouchMove={cancelTouch} onTouchCancel={cancelTouch} className="cursor-pointer app-card rounded-xl p-2 flex items-center gap-3 neo-btn">
+                <div className="w-10 h-10 rounded-lg border-2 border-black flex items-center justify-center shrink-0 bg-white shadow-inner" style={{backgroundColor: bg}}>
+                    {src ? <img src={src} className="w-6 h-6 object-contain" alt={cliente} /> : <span className="font-black mix-blend-difference text-white text-xs">{cliente.substring(0,2)}</span>}
+                </div>
+                <div className="flex-1 flex justify-between items-center min-w-0 pr-2">
+                    <span className="font-black text-sm uppercase truncate">{cliente}</span>
+                    <span className="text-[10px] font-black bg-black/10 dark:bg-white/10 px-2 py-1 rounded-md shrink-0">{modelCount} mod</span>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div onClick={onClick} onMouseDown={handleTouchStart} onMouseUp={cancelTouch} onMouseLeave={cancelTouch} onTouchStart={handleTouchStart} onTouchEnd={cancelTouch} onTouchMove={cancelTouch} onTouchCancel={cancelTouch} className="cursor-pointer flex flex-col p-2 pt-6 neo-btn group">
+            <Folder3D className="w-full aspect-[5/4] mx-auto" />
+            <div className="mt-4 flex justify-center items-center">
+                <span className="font-black text-center uppercase tracking-wide text-sm truncate w-full transition-colors group-hover:text-[#0f6b5c] dark:group-hover:text-[#34d399]">{cliente}</span>
+            </div>
+        </div>
+    );
+};
+
+const ModelThumbnail = ({ modelo, onClick, viewMode }) => {
+    if (viewMode === 'list') {
+        return (
+            <div onClick={onClick} className="cursor-pointer app-card rounded-[1.5rem] flex p-0 overflow-hidden neo-btn border-[3px]">
+                <div className="w-28 bg-black relative shrink-0 border-r-[3px] border-black dark:border-[#2a3b4c]">
+                    <SmartImage codigo={modelo.codigo} className="w-full h-full object-cover absolute inset-0" />
+                </div>
+                <div className="p-4 flex-1 flex flex-col justify-center min-w-0">
+                    <h3 className="font-black text-xl uppercase text-[#0f6b5c] dark:text-[#34d399] truncate">{modelo.codigo}</h3>
+                    {modelo.estiloCliente && <p className="text-[10px] font-bold opacity-80 uppercase mt-0.5 truncate">{modelo.estiloCliente}</p>}
+                    <div className="flex gap-2 mt-3 flex-wrap">
+                        <span className="text-[9px] font-black bg-black/10 dark:bg-white/10 px-2 py-1 rounded border border-black/10 dark:border-white/10">{modelo.activas?.length || 0} PIEZAS</span>
+                        <span className="text-[9px] font-black bg-black/10 dark:bg-white/10 px-2 py-1 rounded border border-black/10 dark:border-white/10">{modelo.colores?.length || 0} COLORES</span>
+                    </div>
+                </div>
+                <div className="flex items-center justify-center p-4 opacity-30">
+                    <span className="text-xl">➡️</span>
+                </div>
+            </div>
+        );
+    }
+
+    if (viewMode === 'compact') {
+        return (
+            <div onClick={onClick} className="cursor-pointer app-card rounded-xl p-2 flex items-center gap-3 neo-btn">
+                <div className="w-12 h-12 bg-black rounded-lg border-2 border-black overflow-hidden shrink-0 relative">
+                    <SmartImage codigo={modelo.codigo} className="w-full h-full object-cover absolute inset-0" />
+                </div>
+                <div className="flex-1 flex justify-between items-center min-w-0 pr-2">
+                    <div className="flex flex-col min-w-0">
+                        <span className="font-black text-sm uppercase truncate leading-tight">{modelo.codigo}</span>
+                        {modelo.estiloCliente && <span className="text-[9px] font-bold opacity-70 uppercase truncate">{modelo.estiloCliente}</span>}
+                    </div>
+                    <span className="text-[10px] font-black opacity-50 pl-2">✏️</span>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div onClick={onClick} className="cursor-pointer app-card rounded-[2rem] overflow-hidden neo-btn flex flex-col p-0 border-[3px]">
+            <div className="aspect-[3/4] bg-black relative w-full overflow-hidden border-b-[3px] neo-border">
+                <SmartImage codigo={modelo.codigo} className="w-full h-full object-cover absolute inset-0" />
+            </div>
+            <div className="p-3.5 flex flex-col justify-center items-center bg-[#0f6b5c] dark:bg-[#0d9488]">
+                <span className="font-black uppercase tracking-tight text-xl sm:text-2xl text-white truncate w-full text-center">{modelo.codigo}</span>
+                {modelo.estiloCliente && <span className="text-[9px] text-white/80 font-bold uppercase truncate max-w-full">{modelo.estiloCliente}</span>}
+            </div>
+        </div>
+    );
+};
+
+const TimeInput = ({ value, onChange }) => {
+  const [mins, setMins] = useState('');
+  const [secs, setSecs] = useState('');
+  useEffect(() => {
+    if (value === undefined || value === '' || value === null) { setMins(''); setSecs(''); return; }
+    const total = parseFloat(value);
+    const m = Math.floor(total);
+    const s = Math.round((total - m) * 60);
+    setMins(m.toString());
+    setSecs(s < 10 ? '0' + s : s.toString());
+  }, [value]);
+  const handle = (newM, newS) => { const m = parseInt(newM)||0; const s = parseInt(newS)||0; onChange((m + s/60).toFixed(4)); };
+  return (
+    <div className="flex items-center gap-1">
+      <input inputMode="numeric" value={mins} placeholder="m" onChange={e=>{setMins(e.target.value); handle(e.target.value,secs);}} className="w-12 text-center rounded-lg p-2 font-mono text-xs app-input outline-none font-bold"/>
+      <span className="font-black">:</span>
+      <input inputMode="numeric" value={secs} placeholder="s" max="59" onChange={e=>{setSecs(e.target.value); handle(mins,e.target.value);}} className="w-12 text-center rounded-lg p-2 font-mono text-xs app-input outline-none font-bold"/>
+    </div>
+  );
+};
+
+const TemplateEditor = ({ template, inventory, targetSection, onClose, onSave, onDelete }) => {
+  const isNew = !template.codigo;
+  const [form, setForm] = useState({ 
+    codigo: template.codigo || '', 
+    cliente: template.cliente || '',
+    estiloCliente: template.estiloCliente || '' 
+  });
+  const [originalCodigo] = useState(template.codigo || '');
+  
+  const [openCopyMenuId, setOpenCopyMenuId] = useState(null);
+  const [defaultFicha, setDefaultFicha] = useState(null);
+
+  const [pieces, setPieces] = useState(() => {
+    const act = (template.activas || []).map(p => ({...p, _activa: true, id: p.id || generateId(), tablaFisica: p.tablaFisica || [] }));
+    const inact = (template.inactivas || []).map(p => ({...p, _activa: false, id: p.id || generateId(), tablaFisica: p.tablaFisica || [] }));
+    const allPieces = [...act, ...inact];
+    return allPieces.length ? allPieces : [{ id: generateId(), pieza: '', talla: 'UNI', maquina: '', sufijo: '-A', codigoPrograma: '', peso: '', tiempo: '', _activa: true, tablaFisica: [] }];
+  });
+
+  const [expandedPieces, setExpandedPieces] = useState(() => {
+      if (template.codigo === '' && pieces.length === 1) {
+          return { [pieces[0].id]: true };
+      }
+      return {};
+  });
+
+  const [threading, setThreading] = useState(() => template.threading ? [...template.threading] : []);
+  const [procesos, setProcesos] = useState(() => template.procesos ? [...template.procesos] : []);
+  const [colores, setColores] = useState(() => template.colores ? [...template.colores] : []);
+  const [kitPresentationBySize, setKitPresentationBySize] = useState(() => template.kitDefinition?.presentationBySize || template.kitPresentationBySize || {});
+  
+  const [kitEnabled, setKitEnabled] = useState(() => template.kitEnabled !== false && template.kitDefinition?.enabled !== false);
+  const [globalKitLabel, setGlobalKitLabel] = useState(() => {
+      if (template.kitDefinition?.globalLabel) return template.kitDefinition.globalLabel;
+      const sizesObj = template.kitDefinition?.presentationBySize || template.kitPresentationBySize || {};
+      const firstSize = Object.values(sizesObj)[0];
+      return firstSize?.displayLabel || '';
+  });
+
+  const [saving, setSaving] = useState(false);
+  const [cropperModal, setCropperModal] = useState({ open: false, src: null, colorId: null, field: null }); 
+  const [formulaModal, setFormulaModal] = useState({ open: false, colorId: null, value: '' });
+
+  useEffect(() => {
+    if (targetSection) {
+      setTimeout(() => {
+        const el = document.getElementById(targetSection);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 300);
+    }
+  }, [targetSection]);
+
+  const addPiece = () => {
+      const newId = generateId();
+      setPieces([...pieces, { 
+          id: newId, pieza: '', talla: 'UNI', maquina: '', sufijo: '-A', codigoPrograma: '', peso: '', tiempo: '', _activa: true, 
+          tablaFisica: defaultFicha ? JSON.parse(JSON.stringify(defaultFicha)) : [] 
+      }]);
+      setExpandedPieces(prev => ({...prev, [newId]: true}));
+  };
+  
+  const updatePiece = (id, field, value) => setPieces(pieces.map(p => p.id === id ? { ...p, [field]: value } : p));
+  const duplicatePiece = (p) => {
+      const newId = generateId();
+      setPieces([...pieces, { ...p, id: newId, maquina: '', tablaFisica: p.tablaFisica ? JSON.parse(JSON.stringify(p.tablaFisica)) : [] }]);
+      setExpandedPieces(prev => ({...prev, [newId]: true}));
+  };
+  const removePiece = (id) => setPieces(pieces.filter(p => p.id !== id));
+
+  const handleCopyFicha = (sourceId, targetMode) => {
+      const sourcePiece = pieces.find(p => p.id === sourceId);
+      if (!sourcePiece) return;
+      const copiedTabla = JSON.parse(JSON.stringify(sourcePiece.tablaFisica || []));
+
+      if (targetMode === 'NUEVAS') {
+          setDefaultFicha(copiedTabla);
+          setOpenCopyMenuId(null);
+          alert("Ficha establecida como predeterminada para las nuevas piezas que agregues.");
+          return;
+      }
+
+      setPieces(pieces.map(p => {
+          if (p.id === sourceId) return p;
+          let shouldCopy = false;
+          if (targetMode === 'ALL') shouldCopy = true;
+          if (targetMode === 'TALLA' && p.talla === sourcePiece.talla) shouldCopy = true;
+          if (targetMode === 'MAQUINA' && p.maquina === sourcePiece.maquina) shouldCopy = true;
+
+          if (shouldCopy) {
+              return { ...p, tablaFisica: JSON.parse(JSON.stringify(copiedTabla)) };
+          }
+          return p;
+      }));
+      setOpenCopyMenuId(null);
+  };
+
+  const addProceso = () => setProcesos([...procesos, { id: generateId(), nombre: '', costo: '' }]);
+  const updateProceso = (id, field, value) => setProcesos(procesos.map(p => p.id === id ? { ...p, [field]: value } : p));
+  const removeProceso = (id) => setProcesos(procesos.filter(p => p.id !== id));
+
+  const addColor = () => setColores([...colores, { id: generateId(), pantoneCode: '', baseName: '', clientName: '', pantoneImage: '', fabricImage: '', formula: '' }]);
+  const updateColor = (id, field, value) => setColores(colores.map(c => c.id === id ? { ...c, [field]: value } : c));
+  const removeColor = (id) => setColores(colores.filter(c => c.id !== id));
+  
+  const updateKitPresentation = (talla, field, value) => setKitPresentationBySize(prev => ({ ...prev, [talla]: { ...(prev[talla] || {}), [field]: value } }));
+  const updateKitYield = (talla, pieza, value) => setKitPresentationBySize(prev => ({ ...prev, [talla]: { ...(prev[talla] || {}), yieldPerLienzo: { ...(prev[talla]?.yieldPerLienzo || {}), [pieza]: value } } }));
+  
+  const kitPreview = useMemo(() => buildKitDefinition(pieces.filter(piece => piece._activa), kitPresentationBySize, kitEnabled, globalKitLabel), [pieces, kitPresentationBySize, kitEnabled, globalKitLabel]);
+
+  const handleImageSelect = (e, colorId, field) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+          setCropperModal({ open: true, src: ev.target.result, colorId, field });
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+  };
+
+  const saveCroppedImage = (base64) => {
+      updateColor(cropperModal.colorId, cropperModal.field, base64);
+      setCropperModal({ open: false, src: null, colorId: null, field: null });
+  };
+
+  const handleSave = async () => {
+    if (!form.codigo.trim()) return alert("El Modelo (Código) es obligatorio.");
+    setSaving(true);
+    window.isSavingTemplate = true;
+    
+    try {
+      const codigoUpper = form.codigo.trim().toUpperCase();
+      const cliUpper = (form.cliente || 'SIN CLIENTE').toUpperCase();
+      const estiloUpper = (form.estiloCliente || '').trim().toUpperCase();
+      
+      const activas = pieces.filter(p => p._activa).map(({_activa, id, ...rest}) => rest);
+      const inactivas = pieces.filter(p => !p._activa).map(({_activa, id, ...rest}) => rest);
+      
+      const validHilaturas = threading.filter(h => (h.material || h.hilo)?.trim() !== '').map(h => ({
+          ...h, 
+          material: (h.material || h.hilo).toUpperCase(),
+          porcentaje: parseFloat(h.porcentaje) || 0,
+          materialId: h.materialId || null
+      }));
+
+      const validProcesos = procesos.filter(p => p.nombre.trim() !== '' && p.costo !== '').map(p => ({ 
+          id: p.id.toString(), nombre: p.nombre.toUpperCase(), costo: parseFloat(p.costo) 
+      }));
+
+      const validColores = colores.map(c => ({
+          id: c.id, pantoneCode: c.pantoneCode.toUpperCase(), baseName: c.baseName.toUpperCase(), clientName: c.clientName.toUpperCase(),
+          pantoneImage: c.pantoneImage, fabricImage: c.fabricImage, formula: c.formula
+      }));
+      const kitSetup = buildKitDefinition(activas, kitPresentationBySize, kitEnabled, globalKitLabel);
+
+      const batch = db.batch();
+
+      if (originalCodigo && originalCodigo !== codigoUpper) {
+        batch.delete(db.collection('plantillas').doc(originalCodigo));
+        batch.delete(db.collection('plantillas_inactivas').doc(originalCodigo));
+        batch.delete(db.collection('modelos_confeccion').doc(originalCodigo));
+      }
+
+      batch.set(db.collection('plantillas').doc(codigoUpper), { 
+          codigo: codigoUpper, 
+          cliente: cliUpper, 
+          estiloCliente: estiloUpper,
+          threading: validHilaturas, 
+          subPiecesData: activas,
+          colores: validColores,
+          kitPresentationBySize: kitSetup.kitDefinition.presentationBySize,
+          ...kitSetup,
+          updatedAt: new Date().toISOString() 
+      }, { merge: true });
+      
+      batch.set(db.collection('plantillas_inactivas').doc(codigoUpper), { 
+          codigo: codigoUpper, 
+          cliente: cliUpper, 
+          estiloCliente: estiloUpper,
+          threading: validHilaturas, 
+          subPiecesData: inactivas,
+          colores: validColores,
+          kitPresentationBySize: kitSetup.kitDefinition.presentationBySize,
+          ...kitSetup,
+          updatedAt: new Date().toISOString() 
+      }, { merge: true });
+      
+      batch.set(db.collection('modelos_confeccion').doc(codigoUpper), { procesos: validProcesos }, { merge: true });
+
+      await batch.commit();
+      onSave();
+    } catch (e) { console.error(e); alert("Error al guardar"); window.isSavingTemplate = false; }
+    setSaving(false);
+  };
+
+  const handleDelete = async () => {
+    if (confirm(`¿ELIMINAR plantilla ${originalCodigo} por completo?`)) {
+      setSaving(true);
+      window.isSavingTemplate = true;
+      try {
+        const batch = db.batch();
+        batch.delete(db.collection('plantillas').doc(originalCodigo));
+        batch.delete(db.collection('plantillas_inactivas').doc(originalCodigo));
+        batch.delete(db.collection('modelos_confeccion').doc(originalCodigo));
+        await batch.commit();
+        onDelete();
+      } catch (e) { alert("Error al eliminar"); window.isSavingTemplate = false; }
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex flex-col backdrop-blur-xl bg-black/90 print:hidden">
+      <div className="app-nav flex items-center justify-between h-16 px-4">
+        <button onClick={onClose} className="font-black px-3 py-1.5 rounded-xl bg-red-500/10 text-red-500 border border-red-500/30">Cancelar</button>
+        <h1 className="text-base font-black tracking-wide text-white">{isNew ? 'Nueva Plantilla' : `Editar ${originalCodigo}`}</h1>
+        <button onClick={handleSave} disabled={saving} className="app-btn-primary px-4 py-1.5 rounded-xl font-black text-xs disabled:opacity-50 neo-btn">Guardar</button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 max-w-5xl mx-auto w-full pb-24 space-y-6">
+        
+        <div id="seccion-general" className="app-card rounded-[2rem] p-5 shadow-lg flex flex-col sm:flex-row gap-5 scroll-mt-20">
+          <div className="w-full sm:w-1/3 h-48 bg-black rounded-2xl border-[3px] neo-border overflow-hidden shrink-0">
+             <SmartImage codigo={form.codigo.toUpperCase()} className="w-full h-full object-cover" />
+          </div>
+          <div className="flex-1 space-y-4 flex flex-col justify-center">
+             <div>
+                <label className="text-xs font-black uppercase tracking-wide ml-1 opacity-70">Modelo (Código)</label>
+                <input value={form.codigo} onChange={e=>setForm({...form, codigo: e.target.value.toUpperCase()})} placeholder="Ej. O900" className="w-full p-3 app-input rounded-2xl font-black text-xl uppercase mt-1 outline-none" />
+             </div>
+             <div>
+                <label className="text-xs font-black uppercase tracking-wide ml-1 opacity-70">Nombre del Modelo (Cliente)</label>
+                <input value={form.estiloCliente} onChange={e=>setForm({...form, estiloCliente: e.target.value.toUpperCase()})} placeholder="Ej. SWEATER BÁSICO" className="w-full p-3 app-input rounded-2xl font-black uppercase mt-1 outline-none" />
+             </div>
+             <div>
+                <label className="text-xs font-black uppercase tracking-wide ml-1 opacity-70">Cliente</label>
+                <input value={form.cliente} onChange={e=>setForm({...form, cliente: e.target.value.toUpperCase()})} placeholder="Ej. ZARA" className="w-full p-3 app-input rounded-2xl font-black uppercase mt-1 outline-none" />
+             </div>
+          </div>
+        </div>
+
+        <div id="seccion-inventario" className="scroll-mt-20">
+          <div className="flex justify-between items-center mb-4">
+             <h2 className="text-base font-black text-white flex items-center gap-2">🌍 Consumo Global (Inventario)</h2>
+          </div>
+          <div className="app-card rounded-[2rem] p-4 bg-yellow-500/5 border-yellow-500/20">
+              <p className="text-[10px] uppercase font-bold text-yellow-600 dark:text-yellow-400 mb-4 opacity-80">
+                  * Este bloque es estricto para el sistema de inventarios y costos. Solo agrega el Material y el % del total del peso.
+              </p>
+              <GlobalThreadingList threading={threading} setThreading={setThreading} inventory={inventory} />
+          </div>
+        </div>
+
+        <div id="seccion-tejido" className="scroll-mt-20">
+          <div className="flex justify-between items-center mb-4 mt-8">
+             <h2 className="text-base font-black text-white flex items-center gap-2">🗂️ Componentes y Enhebrado Técnico</h2>
+             <button onClick={addPiece} className="app-btn-primary px-4 py-2 rounded-xl font-bold text-xs neo-btn">➕ Añadir Pieza</button>
+          </div>
+          
+          <div className="space-y-4">
+            {pieces.map((p, idx) => {
+              const isPieceExpanded = !!expandedPieces[p.id];
+              return (
+                  <div key={p.id} className={`app-card rounded-2xl p-4 relative shadow-md transition-all ${p._activa ? '' : 'opacity-60'}`}>
+                     
+                     <div 
+                         className="flex justify-between items-center cursor-pointer p-1 -m-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                         onClick={() => setExpandedPieces(prev => ({...prev, [p.id]: !prev[p.id]}))}
+                     >
+                       <div className="flex items-center gap-2">
+                         <span className="text-[10px] font-black uppercase tracking-widest neo-badge px-2 py-1 rounded">
+                             PIEZA {idx + 1} {p.pieza ? `| ${p.pieza}` : ''}
+                         </span>
+                         {!p._activa && <span className="text-[10px] font-black text-red-500 uppercase bg-red-500/10 px-2 py-1 rounded border border-red-500">Inactiva</span>}
+                         <span className={`text-[10px] transition-transform duration-300 ${isPieceExpanded ? 'rotate-180' : 'rotate-0'}`}>🔽</span>
+                       </div>
+                       <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
+                         <button onClick={() => updatePiece(p.id, '_activa', !p._activa)} className={`text-xs font-bold px-3 py-1.5 rounded-lg border-2 border-black ${p._activa ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'}`}>{p._activa ? 'Apagar' : 'Encender'}</button>
+                         <button onClick={() => duplicatePiece(p)} className="hover:opacity-70 text-base" title="Duplicar">📋</button>
+                         <button onClick={() => removePiece(p.id)} className="hover:opacity-70 text-base" title="Eliminar">🗑️</button>
+                       </div>
+                     </div>
+                     
+                     {isPieceExpanded && (
+                         <div className="mt-4 pt-4 border-t-2 border-black/10 dark:border-white/10">
+                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="col-span-2 md:col-span-1">
+                                  <label className="text-[10px] font-black uppercase ml-1 opacity-70">Pieza</label>
+                                  <input value={p.pieza} onChange={e=>updatePiece(p.id, 'pieza', e.target.value.toUpperCase())} placeholder="DELANTERO" className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase"/>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-black uppercase ml-1 opacity-70">Talla</label>
+                                  <input value={p.talla} onChange={e=>updatePiece(p.id, 'talla', e.target.value.toUpperCase())} placeholder="UNI" className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase"/>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-black uppercase ml-1 opacity-70">Máquina</label>
+                                  <input inputMode="numeric" value={p.maquina} onChange={e=>updatePiece(p.id, 'maquina', e.target.value)} placeholder="#" className="w-full p-2.5 app-input rounded-xl text-xs font-black text-center"/>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-black uppercase ml-1 opacity-70">Sufijo</label>
+                                  <input value={p.sufijo} onChange={e=>updatePiece(p.id, 'sufijo', e.target.value.toUpperCase())} placeholder="-A" className="w-full p-2.5 app-input rounded-xl text-xs font-black text-center"/>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-black uppercase ml-1 opacity-70">Cód. Prog.</label>
+                                  <input value={p.codigoPrograma} onChange={e=>updatePiece(p.id, 'codigoPrograma', e.target.value.toUpperCase())} placeholder="PROG" className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase"/>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-black uppercase ml-1 opacity-70 text-amber-500">Peso (g)</label>
+                                  <input inputMode="decimal" value={p.peso} onChange={e=>updatePiece(p.id, 'peso', e.target.value)} placeholder="0" className="w-full p-2.5 app-input rounded-xl text-xs font-black text-center text-amber-500"/>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-black uppercase ml-1 opacity-70 text-sky-500">Tiempo</label>
+                                  <TimeInput value={p.tiempo} onChange={val => updatePiece(p.id, 'tiempo', val)} />
+                                </div>
+                             </div>
+                             
+                             <div className="mt-5 border-t-[2px] border-black/10 dark:border-white/10 pt-4">
+                                 <div className="flex justify-between items-center mb-3">
+                                     <span className="text-[10px] font-black uppercase opacity-80 tracking-widest flex items-center gap-2">🧵 Ficha Técnica (Vista para el Operador)</span>
+                                     
+                                     <div className="relative">
+                                         <button 
+                                             type="button" 
+                                             onClick={() => setOpenCopyMenuId(openCopyMenuId === p.id ? null : p.id)} 
+                                             className="text-[10px] font-black uppercase px-2 py-1 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 hover:bg-blue-500/20 transition-colors cursor-pointer"
+                                         >
+                                             📋 Copiar a...
+                                         </button>
+                                         {openCopyMenuId === p.id && (
+                                             <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-[#1a222a] border-2 border-black shadow-lg rounded-xl z-20 overflow-hidden flex flex-col">
+                                                 <button type="button" onClick={() => handleCopyFicha(p.id, 'ALL')} className="text-left px-3 py-2 text-[10px] font-bold hover:bg-black/5 dark:hover:bg-white/5 border-b border-gray-200 dark:border-gray-700 transition-colors">
+                                                    A TODAS las piezas
+                                                 </button>
+                                                 <button type="button" onClick={() => handleCopyFicha(p.id, 'NUEVAS')} className="text-left px-3 py-2 text-[10px] font-bold hover:bg-black/5 dark:hover:bg-white/5 border-b border-gray-200 dark:border-gray-700 transition-colors">
+                                                    A las piezas NUEVAS (Por defecto)
+                                                 </button>
+                                                 <button type="button" onClick={() => handleCopyFicha(p.id, 'TALLA')} className="text-left px-3 py-2 text-[10px] font-bold hover:bg-black/5 dark:hover:bg-white/5 border-b border-gray-200 dark:border-gray-700 transition-colors">
+                                                    Misma TALLA ({p.talla || 'UNI'})
+                                                 </button>
+                                                 <button type="button" onClick={() => handleCopyFicha(p.id, 'MAQUINA')} className="text-left px-3 py-2 text-[10px] font-bold hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                                                    Misma MÁQUINA ({p.maquina || 'S/M'})
+                                                 </button>
+                                             </div>
+                                         )}
+                                     </div>
+
+                                 </div>
+                                 <ExcelTableEditor data={p.tablaFisica || []} onChange={(newData) => updatePiece(p.id, 'tablaFisica', newData)} />
+                             </div>
+                         </div>
+                     )}
+                  </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div id="seccion-kit" className="scroll-mt-20">
+          <div className="flex justify-between items-center mb-4 mt-8">
+             <h2 className="text-base font-black text-white flex items-center gap-2">📦 Configuración automática de KIT</h2>
+             <button type="button" onClick={() => setKitEnabled(prev => !prev)} className={`px-3 py-2 rounded-xl border-[3px] font-black text-[10px] uppercase transition-colors ${kitEnabled ? 'bg-emerald-500 text-white border-black' : 'bg-slate-500 text-white border-black'}`}>{kitEnabled ? '✓ KIT activado' : '○ Producción individual'}</button>
+          </div>
+          
+          {!kitEnabled ? (
+              <div className="rounded-2xl border-[3px] border-slate-500/50 bg-slate-500/10 p-4">
+                  <div className="text-sm font-black uppercase">KIT desactivado para este modelo</div>
+                  <p className="text-xs font-bold opacity-75 mt-2 leading-relaxed">Nueva Orden tratará todas las piezas como paquetes individuales, aunque una talla tenga varios componentes. No se generarán agrupaciones, papeletas KIT ni pago único.</p>
+              </div>
+          ) : kitPreview.kitDefinition.sizes.filter(item => item.cantidadPiezas > 1).length === 0 ? (
+              <div className="app-card rounded-[2rem] p-4">
+                  <p className="text-xs font-bold opacity-70">Este modelo sigue como individual. Un KIT aparece automáticamente cuando una talla tiene dos o más piezas activas.</p>
+              </div>
+          ) : (
+              <div className="space-y-4">
+                  <div className="rounded-2xl border-[3px] border-emerald-500/50 bg-emerald-500/10 p-4 mb-4">
+                      <label className="text-[10px] font-black uppercase ml-1 opacity-70">Nombre Representante del KIT (Global para todas las tallas)</label>
+                      <input value={globalKitLabel} onChange={e => setGlobalKitLabel(e.target.value.toUpperCase())} placeholder="Ej. BLUSAS COMPLETAS" className="w-full p-3 app-input rounded-xl text-sm font-black uppercase mt-1 outline-none focus:border-emerald-500"/>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {kitPreview.kitDefinition.sizes.filter(item => item.cantidadPiezas > 1).map(item => (
+                          <div key={item.talla} className="rounded-2xl border-[3px] border-black/20 dark:border-white/20 p-4 space-y-3 bg-black/[0.03] dark:bg-white/[0.03]">
+                              <div className="flex items-center justify-between gap-3"><span className="neo-badge px-3 py-1 rounded text-xs font-black">TALLA {item.talla}</span><span className="text-[10px] font-black opacity-60 truncate" title={item.piezas.join(' + ')}>{item.piezas.join(' + ')}</span></div>
+                              <div className="rounded-xl border-2 border-sky-500/30 bg-sky-500/[0.05] p-3 space-y-3">
+                                  <div className="grid grid-cols-[1fr_120px] sm:grid-cols-[1fr_150px] gap-3 items-end">
+                                      <div>
+                                          <div className="text-[10px] font-black uppercase tracking-wide text-sky-600 dark:text-sky-300">Composición fija del KIT</div>
+                                          <div className="text-[9px] font-bold opacity-65 mt-1">Define cuántas piezas salen de cada lienzo.</div>
+                                      </div>
+                                      <div>
+                                          <label className="text-[9px] font-black uppercase opacity-70 leading-none block text-center mb-1">Completas por KIT</label>
+                                          <input type="number" min="1" step="1" value={item.presentation.completeUnitsPerKit || ''} onChange={e => updateKitPresentation(item.talla, 'completeUnitsPerKit', e.target.value)} placeholder="Ej. 60" className="w-full p-2 app-input rounded-lg text-sm font-black text-center" aria-label={`Productos completos por KIT de talla ${item.talla}`}/>
+                                      </div>
+                                  </div>
+                                  {item.piezas.map(pieceName => {
+                                      const sourcePiece = pieces.find(piece => piece._activa && String(piece.talla || 'UNI').toUpperCase() === String(item.talla).toUpperCase() && String(piece.pieza || '').toUpperCase() === pieceName) || {};
+                                      const unitWeight = Number(String(sourcePiece.peso || 0).replace(',', '.')) || 0;
+                                      const yieldPerLienzo = Number(item.presentation.yieldPerLienzo?.[pieceName] || 1);
+                                      const componentQuantity = item.presentation.completeUnitsPerKit ? Math.ceil(Number(item.presentation.completeUnitsPerKit) / yieldPerLienzo) : 0;
+                                      const componentWeight = unitWeight * componentQuantity;
+                                      return (
+                                          <div key={pieceName} className="grid grid-cols-[1fr_65px_80px] sm:grid-cols-[1fr_78px_96px] items-center gap-2 rounded-lg bg-white/60 dark:bg-black/20 px-2.5 py-2 border border-black/10 dark:border-white/10">
+                                              <div className="min-w-0">
+                                                  <div className="text-[10px] sm:text-xs font-black uppercase truncate" title={pieceName}>{pieceName}</div>
+                                                  <div className="text-[8px] sm:text-[9px] font-bold opacity-60">{unitWeight ? `${unitWeight.toFixed(1)} g / lienzo` : 'Sin peso unitario'}</div>
+                                              </div>
+                                              <div>
+                                                  <label className="block text-[7px] sm:text-[8px] font-black uppercase opacity-60 text-center">Salen</label>
+                                                  <input type="number" min="1" step="1" value={item.presentation.yieldPerLienzo?.[pieceName] || 1} onChange={e => updateKitYield(item.talla, pieceName, e.target.value)} className="w-full p-1.5 sm:p-2 app-input rounded-lg text-xs font-black text-center" aria-label={`Rendimiento de ${pieceName} por lienzo`}/>
+                                                  <div className="text-[7px] sm:text-[8px] text-center font-bold opacity-60 mt-0.5">x lienzo</div>
+                                              </div>
+                                              <div className="text-right">
+                                                  <div className="text-[8px] sm:text-[9px] font-bold uppercase opacity-60">Necesita</div>
+                                                  <div className="text-[10px] sm:text-xs font-black text-sky-600 dark:text-sky-300">{componentQuantity} lienzos</div>
+                                                  <div className="text-[8px] sm:text-[9px] font-black text-amber-600 dark:text-amber-300">{componentWeight.toFixed(1)} g</div>
+                                              </div>
+                                          </div>
+                                      );
+                                  })}
+                              </div>
+                              {(() => {
+                                  const composition = item.piezas.map(pieceName => {
+                                      const sourcePiece = pieces.find(piece => piece._activa && String(piece.talla || 'UNI').toUpperCase() === String(item.talla).toUpperCase() && String(piece.pieza || '').toUpperCase() === pieceName) || {};
+                                      const yieldPerLienzo = Number(item.presentation.yieldPerLienzo?.[pieceName] || 1);
+                                      const quantity = item.presentation.completeUnitsPerKit ? Math.ceil(Number(item.presentation.completeUnitsPerKit) / yieldPerLienzo) : 0;
+                                      const unitWeight = Number(String(sourcePiece.peso || 0).replace(',', '.')) || 0;
+                                      return { pieceName, quantity, yieldPerLienzo, unitWeight, subtotal: quantity * unitWeight, maquina: sourcePiece.maquina || 'S/M' };
+                                  });
+                                  const totalWeight = composition.reduce((sum, component) => sum + component.subtotal, 0);
+                                  const displayQuantity = Number(item.presentation.completeUnitsPerKit || 0);
+                                  return (
+                                      <div className="space-y-3">
+                                          <div className="rounded-xl border-[3px] border-amber-500/50 bg-amber-500/[0.09] p-3 grid grid-cols-2 sm:grid-cols-3 gap-3 items-center">
+                                              <div>
+                                                  <div className="text-[10px] font-black uppercase opacity-70">1 pqte KIT</div>
+                                                  <div className="text-lg sm:text-2xl font-black text-amber-600 dark:text-amber-300 leading-none">{totalWeight.toFixed(1)} g</div>
+                                              </div>
+                                              <div className="sm:border-l-2 border-black/10 dark:border-white/10 sm:px-4">
+                                                  <div className="text-[10px] font-black uppercase opacity-70">Carga (2 pqtes)</div>
+                                                  <div className="text-lg sm:text-2xl font-black text-emerald-600 dark:text-emerald-300 leading-none">{(totalWeight * 2).toFixed(1)} g</div>
+                                              </div>
+                                              <div className="col-span-2 sm:col-span-1 sm:text-right border-t-2 sm:border-t-0 border-black/10 pt-2 sm:pt-0">
+                                                  <div className="text-[10px] font-black uppercase opacity-70">Papeleta</div>
+                                                  <div className="text-xs sm:text-sm font-black uppercase">{displayQuantity} {item.presentation.displayLabel}</div>
+                                              </div>
+                                          </div>
+                                          <div className="hidden sm:block">
+                                              <div className="text-[10px] font-black uppercase tracking-widest opacity-70 mb-2">Vista previa de papeleta · partida de prueba</div>
+                                              <KitLabelPreview codigo={form.codigo} cliente={form.cliente} talla={item.talla} partida="PREVIEW_01" displayLabel={item.presentation.displayLabel} displayQuantity={displayQuantity} components={composition} totalWeight={totalWeight} />
+                                          </div>
+                                      </div>
+                                  );
+                              })()}
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          )}
+        </div>
+
+        <div id="seccion-confeccion" className="scroll-mt-20">
+          <div className="flex justify-between items-center mb-4 mt-8">
+             <h2 className="text-base font-black text-white flex items-center gap-2">✂️ Procesos de Confección</h2>
+             <button onClick={addProceso} className="app-btn-secondary px-4 py-2 rounded-xl font-bold text-xs neo-btn">➕ Añadir Proceso</button>
+          </div>
+          <div className="space-y-3">
+            {procesos.map((proc, index) => (
+              <div key={proc.id} className="flex gap-3 items-center app-card rounded-2xl p-3 shadow-sm">
+                <span className="font-black w-6 text-center text-sm">{index + 1}</span>
+                <div className="flex-1">
+                   <input value={proc.nombre} onChange={e=>updateProceso(proc.id, 'nombre', e.target.value)} placeholder="Ej. COSTURA LATERAL" className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase"/>
+                </div>
+                <div className="w-32">
+                   <input type="number" step="0.01" value={proc.costo} onChange={e=>updateProceso(proc.id, 'costo', e.target.value)} placeholder="0.00" className="w-full p-2.5 app-input rounded-xl text-xs font-black text-emerald-500 text-center"/>
+                </div>
+                <button onClick={() => removeProceso(proc.id)} className="p-2.5 hover:bg-red-500/10 rounded-lg transition-colors text-lg">🗑️</button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div id="seccion-colores" className="scroll-mt-20">
+          <div className="flex justify-between items-center mb-4 mt-8">
+             <h2 className="text-base font-black text-white flex items-center gap-2">🎨 Paleta de Colores</h2>
+             <button onClick={addColor} className="bg-purple-600 text-white px-4 py-2 rounded-xl font-bold text-xs border-[3px] border-black shadow-[4px_4px_0_#14181c] neo-btn">➕ Añadir Color</button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {colores.map((c, i) => (
+                <div key={c.id} className="app-card rounded-2xl p-4 shadow-md border-2 border-purple-500/30 flex flex-col gap-4 relative">
+                    <button onClick={() => removeColor(c.id)} className="absolute top-2 right-2 text-xl hover:bg-red-500/10 rounded-lg p-1 transition-colors">🗑️</button>
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                        <div>
+                            <label className="text-[10px] font-black uppercase ml-1 opacity-70">Código Pantone</label>
+                            <input value={c.pantoneCode} onChange={e=>updateColor(c.id, 'pantoneCode', e.target.value)} placeholder="19-4052 TCX" className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase mt-1 outline-none border-purple-500/50"/>
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-black uppercase ml-1 opacity-70">Nombre Base</label>
+                            <input value={c.baseName} onChange={e=>updateColor(c.id, 'baseName', e.target.value)} placeholder="AZUL MARINO" className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase mt-1 outline-none"/>
+                        </div>
+                        <div className="col-span-2">
+                            <label className="text-[10px] font-black uppercase ml-1 opacity-70 text-purple-600 dark:text-purple-400">Nombre Cliente (Referencia)</label>
+                            <input value={c.clientName} onChange={e=>updateColor(c.id, 'clientName', e.target.value)} placeholder="NAVY MIDNIGHT" className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase mt-1 outline-none"/>
+                        </div>
+                    </div>
+                    
+                    <div className="flex gap-4 items-end mt-2">
+                        <div className="flex-1 flex flex-col items-center">
+                            <label className="text-[9px] font-black uppercase opacity-70 mb-1 text-center w-full">Etiqueta Pantone</label>
+                            <div className="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-xl overflow-hidden border-2 border-dashed neo-border relative flex justify-center items-center group">
+                                {c.pantoneImage ? <img src={c.pantoneImage} className="w-full h-full object-cover" /> : <span className="text-2xl opacity-50">🏷️</span>}
+                                <input type="file" accept="image/*" onChange={(e) => handleImageSelect(e, c.id, 'pantoneImage')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                            </div>
+                        </div>
+                        <div className="flex-1 flex flex-col items-center">
+                            <label className="text-[9px] font-black uppercase opacity-70 mb-1 text-center w-full">Foto Prenda/Tela</label>
+                            <div className="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-xl overflow-hidden border-2 border-dashed neo-border relative flex justify-center items-center group">
+                                {c.fabricImage ? <img src={c.fabricImage} className="w-full h-full object-cover" /> : <span className="text-2xl opacity-50">🧶</span>}
+                                <input type="file" accept="image/*" onChange={(e) => handleImageSelect(e, c.id, 'fabricImage')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button onClick={() => setFormulaModal({ open: true, colorId: c.id, value: c.formula || '' })} className="w-full py-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-black text-xs rounded-xl border border-blue-500/30 hover:bg-blue-500/20 transition-colors mt-2">
+                        🧪 {c.formula ? 'Editar Fórmula' : 'Añadir Fórmula'}
+                    </button>
+                </div>
+            ))}
+          </div>
+        </div>
+
+        {!isNew && (
+          <div className="mt-10 pt-6 border-t border-white/20 flex justify-center">
+            <button onClick={handleDelete} className="text-white border-[3px] border-black bg-red-600 px-6 py-3 rounded-2xl font-black flex items-center gap-2 neo-btn">
+              🗑️ Eliminar Plantilla Completa
+            </button>
+          </div>
+        )}
+      </div>
+
+      {cropperModal.open && <ImageCropperModal src={cropperModal.src} onSave={saveCroppedImage} onClose={() => setCropperModal({ open: false, src: null, colorId: null, field: null })} />}
+      
+      {formulaModal.open && (
+          <div className="fixed inset-0 z-[600] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="app-card w-full max-w-md p-5 rounded-3xl relative">
+                  <h3 className="font-black mb-1 text-blue-600 dark:text-blue-400">Fórmula / Receta</h3>
+                  <p className="text-[10px] font-bold opacity-70 mb-4 uppercase">Instrucciones de tintorería o producción</p>
+                  <textarea 
+                      value={formulaModal.value}
+                      onChange={e => setFormulaModal({...formulaModal, value: e.target.value})}
+                      placeholder="Ej: 50% Colorante X, 50% Colorante Y, Temperatura 180°C..."
+                      className="w-full h-40 p-4 app-input rounded-xl text-sm font-bold resize-none mb-4 outline-none border-2 border-black/20 dark:border-white/20"
+                  ></textarea>
+                  <div className="flex gap-3">
+                      <button onClick={() => { updateColor(formulaModal.colorId, 'formula', formulaModal.value); setFormulaModal({ open: false, colorId: null, value: '' }); }} className="flex-1 app-btn-primary font-black py-3 rounded-xl neo-btn">Guardar</button>
+                      <button onClick={() => setFormulaModal({ open: false, colorId: null, value: '' })} className="flex-1 bg-gray-500 text-white font-black py-3 rounded-xl neo-btn">Cancelar</button>
+                  </div>
+              </div>
+          </div>
+      )}
+    </div>
+  );
+};
+
+const ExcelTableDisplay = ({ data }) => {
+    if (!data || data.length === 0) return null;
+    return (
+        <div className="w-full overflow-hidden rounded shadow-[4px_4px_0_#14181c] border-[3px] border-black bg-white mt-2">
+            <table className="excel-table m-0 border-0">
+                <thead>
+                    <tr>
+                        <th className="excel-th-percent border-0 border-r border-b">%</th>
+                        <th className="excel-th-material border-0 border-r border-b w-1/3">MATERIAL</th>
+                        <th className="excel-th-tech border-0 border-r border-b w-16">G.HILO</th>
+                        <th className="excel-th-tech border-0 border-b">SIS.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {data.map((group) => (
+                        <React.Fragment key={group.id}>
+                            {group.guias && group.guias.map((g, subIdx) => (
+                                <tr key={g.id}>
+                                    {subIdx === 0 && (
+                                        <>
+                                            <td rowSpan={group.guias.length} className="excel-td-percent border-0 border-r border-b">{group.percent ? `${group.percent}%` : '-'}</td>
+                                            <td rowSpan={group.guias.length} className="excel-td-white border-0 border-r border-b" style={{wordBreak: 'break-word', whiteSpace: 'pre-wrap', lineHeight: '1.2'}}>{group.material || '-'}</td>
+                                        </>
+                                    )}
+                                    <td className="excel-td-white border-0 border-r border-b font-black">{g.guia || '-'}</td>
+                                    <td className="excel-td-white border-0 border-b">{g.sis || '-'}</td>
+                                </tr>
+                            ))}
+                        </React.Fragment>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+};
+
+const FichaTecnica = ({ modelo, logoData, onToggle, onEdit, onSelectPdfTemplate, db, hilaturasRouss }) => {
+  const todasLasPiezas = [...modelo.activas.map(p => ({...p, _activa: true})), ...modelo.inactivas.map(p => ({...p, _activa: false}))];
+  
+  const agrupado = useMemo(() => {
+    const groups = {};
+    todasLasPiezas.forEach(p => {
+      const talla = p.talla || 'UNI';
+      if (!groups[talla]) groups[talla] = {};
+      const maquina = p.maquina || 'S/M';
+      if (!groups[talla][maquina]) { groups[talla][maquina] = { piezas: [], activa: false }; }
+      groups[talla][maquina].piezas.push(p);
+      if (p._activa) groups[talla][maquina].activa = true;
+    });
+    return groups;
+  }, [todasLasPiezas]);
+
+  const tallasDisponibles = useMemo(() => Array.from(new Set(todasLasPiezas.map(p => p.talla || 'UNI'))), [todasLasPiezas]);
+  
+  const totalMaquinas = Object.values(agrupado).reduce((acc, maquinas) => acc + Object.keys(maquinas).length, 0);
+  const maquinasActivas = Object.values(agrupado).reduce((acc, maquinas) => acc + Object.values(maquinas).filter(m => m.activa).length, 0);
+
+  const [expandedGroups, setExpandedGroups] = useState(() => {
+      const initial = {};
+      let totalKeys = 0;
+      let lastKey = null;
+      
+      Object.entries(agrupado).forEach(([t, mqs]) => {
+          Object.keys(mqs).forEach(mq => {
+              totalKeys++;
+              lastKey = `${t}-${mq}`;
+          });
+      });
+      
+      if (totalKeys === 1 && lastKey) {
+          initial[lastKey] = true;
+      }
+      return initial;
+  });
+
+  const toggleGroup = (talla, numMaquina) => {
+      const key = `${talla}-${numMaquina}`;
+      setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const [expandedBlocks, setExpandedBlocks] = useState({
+      tejido: false,
+      confeccion: false,
+      colores: true,
+      pdf: false
+  });
+
+  const toggleBlock = (blockName) => {
+      setExpandedBlocks(prev => ({ ...prev, [blockName]: !prev[blockName] }));
+  };
+
+  const clientBg = logoData?.logoBg || '#ffffff';
+  const clientSrc = logoData?.logoUrl || logoData?.logoSVG || null;
+  const pdfLogoUrl = logoData?.pdfLogoUrl || null;
+
+  const [estiloCliente, setEstiloCliente] = useState(modelo.estiloCliente || '');
+
+  const defaultPdfConfig = {
+      headerBg: '#000000',
+      headerColor: '#ffffff',
+      borderColor: '#000000',
+      borderWidth: '2px',
+      borderStyle: 'solid'
+  };
+
+  const [pdfConfig, setPdfConfig] = useState(defaultPdfConfig);
+
+  useEffect(() => {
+      let config = defaultPdfConfig;
+      if (modelo.pdfConfig) {
+          config = { ...defaultPdfConfig, ...modelo.pdfConfig };
+      } else if (logoData?.pdfConfig) {
+          config = { ...defaultPdfConfig, ...logoData.pdfConfig };
+      }
+      setPdfConfig(config);
+  }, [modelo, logoData]);
+
+  const savePdfConfigToModel = async () => {
+      try {
+          await db.collection('plantillas').doc(modelo.codigo).set({ pdfConfig }, { merge: true });
+          await db.collection('plantillas_inactivas').doc(modelo.codigo).set({ pdfConfig }, { merge: true });
+          alert("Estilo guardado para este modelo específico.");
+      } catch(e) { alert("Error guardando estilo al modelo."); }
+  };
+
+  const savePdfConfigToClient = async () => {
+      try {
+          await db.collection('clientes').doc(modelo.cliente).set({ pdfConfig }, { merge: true });
+          alert(`Estilo predeterminado actualizado para el cliente: ${modelo.cliente}`);
+      } catch(e) { alert("Error guardando estilo al cliente."); }
+  };
+
+  useEffect(() => {
+      setEstiloCliente(modelo.estiloCliente || '');
+  }, [modelo]);
+
+  const handleEstiloBlur = async () => {
+      const valUpper = estiloCliente.trim().toUpperCase();
+      if (valUpper !== (modelo.estiloCliente || '')) {
+          try {
+              await db.collection('plantillas').doc(modelo.codigo).set({ estiloCliente: valUpper }, { merge: true });
+              await db.collection('plantillas_inactivas').doc(modelo.codigo).set({ estiloCliente: valUpper }, { merge: true });
+              modelo.estiloCliente = valUpper;
+          } catch (e) { console.error("Error al actualizar", e); }
+      }
+  };
+
+  const [pdfData, setPdfData] = useState({
+      proveedor: "SWETER'S LILIANA",
+      talla: tallasDisponibles[0] || 'M',
+      tela: 'SEAMLESS',
+      composicion: '',
+      muestra: '',
+      fecha: new Date().toLocaleDateString('es-ES', {day: '2-digit', month: 'short', year: '2-digit'}).replace('.', '')
+  });
+
+  const [pdfTemplateModalOpen, setPdfTemplateModalOpen] = useState(false);
+  const [pinModalForPdf, setPinModalForPdf] = useState(false);
+  const pdfTimerRef = useRef(null);
+
+  const handlePdfTouchStart = () => {
+      pdfTimerRef.current = setTimeout(() => {
+          setPinModalForPdf(true);
+      }, 5000);
+  };
+  const cancelPdfTouch = () => {
+      if (pdfTimerRef.current) clearTimeout(pdfTimerRef.current);
+  };
+
+  const [activePdfTemplateHtml, setActivePdfTemplateHtml] = useState(null);
+
+  useEffect(() => {
+      if (modelo.pdfTemplateId) {
+          db.collection('TEMPLATE-BETA').doc(modelo.pdfTemplateId).get().then(doc => {
+              if (doc.exists) setActivePdfTemplateHtml(doc.data().html);
+          });
+      } else {
+          setActivePdfTemplateHtml(null);
+      }
+  }, [modelo.pdfTemplateId, db]);
+
+  const calcularComposicionAutomatica = () => {
+      const threading = modelo.threading || [];
+      if (threading.length === 0) {
+          alert("⚠️ No hay hilos registrados en el 'Consumo Global' (Inventario) de este modelo.");
+          return;
+      }
+
+      let totalConsumo = 0;
+      const matAportes = {};
+
+      threading.forEach(hilo => {
+          const pjePrenda = parseFloat(hilo.porcentaje) || 0;
+          if (pjePrenda <= 0) return;
+          
+          totalConsumo += pjePrenda;
+          const estructura = hilaturasRouss.find(hr => hr.inventoryId === hilo.materialId);
+
+          if (estructura && estructura.composicion && estructura.composicion.length > 0) {
+              estructura.composicion.forEach(comp => {
+                  const mat = comp.material.toUpperCase();
+                  const pjeMat = parseFloat(comp.porcentaje) || 0;
+                  const aporte = (pjePrenda / 100) * pjeMat;
+                  matAportes[mat] = (matAportes[mat] || 0) + aporte;
+              });
+          } else {
+              const matFallback = (hilo.material || 'DESCONOCIDO').toUpperCase();
+              matAportes[matFallback] = (matAportes[matFallback] || 0) + pjePrenda;
+          }
+      });
+
+      if (totalConsumo === 0) {
+          alert("⚠️ Los hilos del consumo global están en 0%.");
+          return;
+      }
+
+      const factor = 100 / totalConsumo;
+      const composicionFinalArr = [];
+
+      Object.entries(matAportes).forEach(([mat, valor]) => {
+          const valorFinal = Math.round((valor * factor) * 10) / 10;
+          if (valorFinal > 0) {
+              composicionFinalArr.push({ material: mat, porcentaje: valorFinal });
+          }
+      });
+
+      composicionFinalArr.sort((a, b) => b.porcentaje - a.porcentaje);
+      const resultadoStr = composicionFinalArr.map(item => `${item.porcentaje}% ${item.material}`).join(', ');
+      setPdfData(prev => ({ ...prev, composicion: resultadoStr }));
+  };
+
+  const renderPdfContent = () => {
+      const estiloFinal = estiloCliente || modelo.codigo;
+      const logoHtml = pdfLogoUrl ? `<img src="${pdfLogoUrl}" style="max-width:200%; max-height:200%; object-fit:contain; transform: rotate(-90deg);" />` : `<div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) rotate(-90deg); white-space:nowrap; display:flex; align-items:center; gap:6px;"><div style="width:20px; height:20px; border-radius:50%; border:3px solid black; display:flex; justify-content:center; align-items:center;"><div style="width:10px; height:10px; background:black; border-radius:50%;"></div></div><span style="font-size:22px; font-weight:900; letter-spacing:0.15em;">OPTIMA</span></div>`;
+      
+      if (activePdfTemplateHtml) {
+          let html = activePdfTemplateHtml
+              .replace(/{{proveedor}}/g, pdfData.proveedor)
+              .replace(/{{estilo}}/g, estiloFinal)
+              .replace(/{{talla}}/g, pdfData.talla)
+              .replace(/{{tela}}/g, pdfData.tela)
+              .replace(/{{composicion}}/g, pdfData.composicion)
+              .replace(/{{muestra}}/g, pdfData.muestra)
+              .replace(/{{fecha}}/g, pdfData.fecha)
+              .replace(/{{logo}}/g, logoHtml);
+          return <div dangerouslySetInnerHTML={{ __html: html }} />;
+      }
+      
+      const bStyle = { border: `${pdfConfig.borderWidth} ${pdfConfig.borderStyle} ${pdfConfig.borderColor}` };
+      const bRight = { borderRight: `${pdfConfig.borderWidth} ${pdfConfig.borderStyle} ${pdfConfig.borderColor}` };
+      const bBottom = { borderBottom: `${pdfConfig.borderWidth} ${pdfConfig.borderStyle} ${pdfConfig.borderColor}` };
+      const hStyle = { backgroundColor: pdfConfig.headerBg, color: pdfConfig.headerColor, ...bRight };
+      const mStyle = { minHeight: '32px' };
+
+      return (
+          <div className="w-[11cm] flex flex-row bg-white font-sans box-border text-black" style={{ pageBreakInside: 'avoid', ...bStyle }}>
+               <div className="w-[2cm] flex flex-col items-center justify-center py-4 relative overflow-hidden shrink-0" style={bRight} dangerouslySetInnerHTML={{ __html: logoHtml }}></div>
+               <div className="flex-1 flex flex-col text-[11px] font-bold tracking-wide uppercase">
+                   <div className="flex" style={{...bBottom, ...mStyle}}><div className="w-[45%] p-1.5 flex items-center" style={hStyle}>PROVEEDOR</div><div className="flex-1 p-1.5 flex items-center justify-center text-center" style={{color: '#000'}}>{pdfData.proveedor}</div></div>
+                   <div className="flex" style={{...bBottom, ...mStyle}}><div className="w-[45%] p-1.5 flex items-center" style={hStyle}>ESTILO</div><div className="flex-1 p-1.5 flex items-center justify-center text-center" style={{color: '#000'}}>{estiloFinal}</div></div>
+                   <div className="flex" style={{...bBottom, ...mStyle}}><div className="w-[45%] p-1.5 flex items-center" style={hStyle}>TALLA</div><div className="flex-1 p-1.5 flex items-center justify-center text-center text-lg font-black" style={{color: '#000'}}>{pdfData.talla}</div></div>
+                   <div className="flex" style={{...bBottom, ...mStyle}}><div className="w-[45%] p-1.5 flex items-center" style={hStyle}>TELA</div><div className="flex-1 p-1.5 flex items-center justify-center text-center" style={{color: '#000'}}>{pdfData.tela}</div></div>
+                   <div className="flex" style={{...bBottom, minHeight: '48px'}}><div className="w-[45%] p-1.5 flex items-center" style={hStyle}>COMPOSICIÓN</div><div className="flex-1 p-1.5 flex items-center justify-center text-center leading-tight whitespace-pre-wrap" style={{color: '#000'}}>{pdfData.composicion}</div></div>
+                   <div className="flex" style={{...bBottom, ...mStyle}}><div className="w-[45%] p-1.5 flex items-center" style={hStyle}>NÚMERO DE MUESTRA</div><div className="flex-1 p-1.5 flex items-center justify-center text-center" style={{color: '#000'}}>{pdfData.muestra}</div></div>
+                   <div className="flex" style={mStyle}><div className="w-[45%] p-1.5 flex items-center" style={hStyle}>FECHA</div><div className="flex-1 p-1.5 flex items-center justify-center text-center" style={{color: '#000'}}>{pdfData.fecha}</div></div>
+               </div>
+           </div>
+      );
+  };
+
+  const generarPDFjsPDFDirecto = async () => {
+      const element = document.getElementById('etiqueta-print-preview');
+      if (!element) {
+          alert("No se encontró el elemento de vista previa de la etiqueta.");
+          return;
+      }
+
+      try {
+          const canvas = await html2canvas(element, {
+              scale: 3,
+              useCORS: true,
+              allowTaint: true,
+              logging: false
+          });
+
+          const rotatedCanvas = document.createElement('canvas');
+          rotatedCanvas.width = canvas.height;
+          rotatedCanvas.height = canvas.width;
+          const rCtx = rotatedCanvas.getContext('2d');
+          rCtx.fillStyle = '#ffffff';
+          rCtx.fillRect(0, 0, rotatedCanvas.width, rotatedCanvas.height);
+          rCtx.translate(0, rotatedCanvas.height);
+          rCtx.rotate(-Math.PI / 2);
+          rCtx.drawImage(canvas, 0, 0);
+
+          const imgData = rotatedCanvas.toDataURL('image/jpeg', 1.0);
+
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF({
+              orientation: 'portrait',
+              unit: 'cm',
+              format: 'letter'
+          });
+
+          const pageWidth = 21.59;
+          const pageHeight = 27.94;
+
+          const originalWidthCm = 11;
+          const originalHeightCm = (canvas.height / canvas.width) * originalWidthCm;
+
+          const finalWidthCm = originalHeightCm;
+          const finalHeightCm = originalWidthCm;
+
+          const centerX = pageWidth / 2;
+          const centerY = pageHeight - 3.5;
+          const margin = 0.5;
+
+          const x = centerX - finalWidthCm / 2;
+          let y = centerY - finalHeightCm / 2;
+          if (y < margin) y = margin;
+          if (y + finalHeightCm > pageHeight - margin) y = Math.max(margin, pageHeight - margin - finalHeightCm);
+
+          pdf.addImage(imgData, 'JPEG', x, y, finalWidthCm, finalHeightCm);
+
+          pdf.save(`ETIQUETA_${modelo.codigo}.pdf`);
+      } catch (error) {
+          console.error("Error detallado al generar PDF con jsPDF:", error);
+          alert("Error al generar PDF: " + (error.message || error));
+      }
+  };
+
+  const [formulaViewModal, setFormulaViewModal] = useState({ open: false, formula: '' });
+
+  const isKitActive = modelo.kitDefinition?.enabled && modelo.kitDefinition?.sizes?.some(s => s.cantidadPiezas > 1);
+  const globalKitName = modelo.kitDefinition?.globalLabel || Object.values(modelo.kitDefinition?.presentationBySize || {})[0]?.displayLabel || 'NO DEFINIDO';
+
+  return (
+    <>
+    {pinModalForPdf && <PinModal onSuccess={() => { setPinModalForPdf(false); setPdfTemplateModalOpen(true); }} onClose={() => setPinModalForPdf(false)} />}
+    {pdfTemplateModalOpen && <PdfTemplateManagerModal onClose={() => setPdfTemplateModalOpen(false)} currentTemplateId={modelo.pdfTemplateId} onSelectTemplate={(id) => { onSelectPdfTemplate(modelo.codigo, id); setPdfTemplateModalOpen(false); }} />}
+
+    <div className="app-card max-w-4xl mx-auto w-full rounded-[2rem] flex flex-col shadow-2xl relative p-0 border-[3px] neo-border print:hidden mb-4">
+      <div className="flex flex-col sm:flex-row">
+          <div className="w-full sm:w-72 h-64 sm:h-auto bg-black relative shrink-0 rounded-t-[2rem] sm:rounded-tr-none sm:rounded-l-[2rem] border-b-[3px] sm:border-b-0 sm:border-r-[3px] neo-border overflow-hidden">
+            <SmartImage codigo={modelo.codigo} className="w-full h-full object-cover" />
+            <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-xl border-2 border-white/20 flex items-center gap-2 shadow-lg">
+               <div className={`w-2.5 h-2.5 rounded-full ${maquinasActivas > 0 ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`}></div>
+               <span className="text-xs font-black text-white">{maquinasActivas}/{totalMaquinas} ON</span>
+            </div>
+          </div>
+          
+          <div className="p-4 sm:p-6 flex flex-col gap-4 bg-[#eef1e6] dark:bg-[#12181d] w-full rounded-b-[2rem] sm:rounded-bl-none sm:rounded-r-[2rem]">
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex items-center gap-4">
+                {clientSrc && (
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center p-2 shadow-inner border-[3px] neo-border bg-white" style={{ backgroundColor: clientBg }}>
+                        <img src={clientSrc} className="w-full h-full object-contain" alt={modelo.cliente} />
+                    </div>
+                )}
+                <div>
+                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight leading-none uppercase text-[#14181c] dark:text-white">{modelo.codigo}</h2>
+                </div>
+              </div>
+              <button onClick={() => onEdit('seccion-general')} className="app-btn-primary px-3 py-1.5 rounded-xl neo-btn text-xs font-black">
+                ✏️ Editar General
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-2xl border-[3px] neo-border bg-white dark:bg-[#1a222a] shadow-[4px_4px_0_#14181c] dark:shadow-[4px_4px_0_#000]">
+                <div className="flex items-center gap-4">
+                    <div className={`w-4 h-4 rounded-full border-2 border-black ${isKitActive ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-slate-300 dark:bg-slate-600'}`}></div>
+                    <div>
+                        <div className="text-[10px] font-black uppercase opacity-70">Modo Kit (Agrupación)</div>
+                        <div className={`text-sm font-black uppercase ${isKitActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500'}`}>
+                            {isKitActive ? `ACTIVADO: ${globalKitName}` : 'APAGADO / SIN CONFIGURAR'}
+                        </div>
+                    </div>
+                </div>
+                <button onClick={() => onEdit('seccion-kit')} className={`px-4 py-2.5 rounded-xl text-xs font-black neo-btn border-2 border-black ${isKitActive ? 'bg-white text-black dark:bg-black dark:text-white' : 'bg-amber-400 text-black'}`}>
+                    {isKitActive ? '⚙️ Ajustar KIT' : '⚙️ Activar KIT'}
+                </button>
+            </div>
+            
+            <div>
+              <div className="flex justify-between items-center bg-black/5 dark:bg-white/5 p-3 rounded-xl cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-colors" onClick={() => toggleBlock('tejido')}>
+                  <h3 className="text-sm font-black uppercase tracking-wider text-[#0f6b5c] dark:text-[#34d399] flex items-center gap-2">🧶 Tejido y Enhebrado</h3>
+                  <div className="flex items-center gap-3">
+                      <button onClick={(e) => { e.stopPropagation(); onEdit('seccion-tejido'); }} className="bg-[#14181c] dark:bg-white dark:text-black text-white px-3 py-1 rounded-lg text-xs font-black neo-btn border-2 border-transparent">✏️ Editar</button>
+                      <span className={`text-sm transition-transform duration-300 ${expandedBlocks.tejido ? 'rotate-180' : ''}`}>🔽</span>
+                  </div>
+              </div>
+              {expandedBlocks.tejido && (
+                  <div className="space-y-3 mt-4">
+                    {Object.entries(agrupado).map(([talla, maquinas]) => (
+                      <div key={talla} className="app-input rounded-2xl p-3 border-[3px] neo-border shadow-sm">
+                        <div className="text-[10px] font-black tracking-widest uppercase mb-2 border-b-2 border-black/10 dark:border-white/10 pb-1 flex items-center gap-2">
+                          TALLA: <span className="bg-[#14181c] text-white dark:bg-white dark:text-black px-2 py-0.5 rounded text-[10px]">{talla}</span>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                          {Object.entries(maquinas).map(([numMaquina, datos]) => {
+                            const isGroupExpanded = !!expandedGroups[`${talla}-${numMaquina}`];
+                            return (
+                              <div key={numMaquina} className={`p-3 rounded-xl border-[2px] neo-border transition-colors ${datos.activa ? 'bg-white dark:bg-[#1a222a] shadow-sm' : 'bg-transparent opacity-60'}`}>
+                                <div className="flex justify-between items-center cursor-pointer hover:bg-black/5 dark:bg-white/5 p-2 -m-2 rounded-lg transition-colors" onClick={() => toggleGroup(talla, numMaquina)}>
+                                   <div className="flex items-center gap-3">
+                                       <div className="w-8 h-8 rounded-lg bg-[#14181c] dark:bg-black flex items-center justify-center font-black text-white text-sm shrink-0">MQ {numMaquina}</div>
+                                       <span className="text-[10px] sm:text-xs font-black uppercase text-gray-500 dark:text-gray-400">{datos.piezas.length} Piezas</span>
+                                       <span className={`text-[10px] transition-transform duration-300 ${isGroupExpanded ? 'rotate-180' : 'rotate-0'}`}>🔽</span>
+                                   </div>
+                                   <div className="flex items-center scale-75 origin-right" onClick={e => e.stopPropagation()}>
+                                      <input type="checkbox" id={`toggle-${modelo.codigo}-${talla}-${numMaquina}`} className="hidden toggle-checkbox" checked={datos.activa} onChange={() => onToggle(modelo, talla, numMaquina, datos.activa)} />
+                                      <label htmlFor={`toggle-${modelo.codigo}-${talla}-${numMaquina}`} className="toggle-label m-0"></label>
+                                   </div>
+                                </div>
+                                {isGroupExpanded && (
+                                    <div className="space-y-3 mt-4 pt-3 border-t-2 border-black/10 dark:border-white/10">
+                                        {datos.piezas.map((p, idx) => (
+                                            <div key={idx} className="flex flex-col gap-2 bg-[#f8fafc] dark:bg-[#0a0e11] p-3 rounded-xl border-[2px] neo-border">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs font-black uppercase text-[#14181c] dark:text-white truncate">{p.pieza}</span>
+                                                    <div className="flex gap-1.5 shrink-0">
+                                                        <span className="text-[10px] text-white font-black bg-[#14181c] dark:bg-black px-2 py-1 rounded-md border border-black/20">⚖️ {p.peso||0}g</span>
+                                                        <span className="text-[10px] text-white font-black bg-[#14181c] dark:bg-black px-2 py-1 rounded-md border border-black/20">⏱️ {formatTimeDisplay(p.tiempo)}</span>
+                                                    </div>
+                                                </div>
+                                                {p.tablaFisica && p.tablaFisica.length > 0 && <ExcelTableDisplay data={p.tablaFisica} />}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+              )}
+            </div>
+          </div>
+      </div>
+
+      <div className="bg-[#14181c] dark:bg-[#1a222a] border-[3px] border-t-0 neo-border p-4 sm:p-6 rounded-none transition-all">
+          <div className="flex justify-between items-center cursor-pointer select-none" onClick={() => toggleBlock('confeccion')}>
+             <div className="text-sm font-black text-white tracking-widest uppercase flex items-center gap-2 opacity-90">✂️ Procesos de Confección</div>
+             <div className="flex items-center gap-3">
+                 <button onClick={(e) => { e.stopPropagation(); onEdit('seccion-confeccion'); }} className="bg-white text-black px-3 py-1 rounded-lg text-xs font-black neo-btn">✏️ Editar</button>
+                 <span className={`text-white transition-transform duration-300 ${expandedBlocks.confeccion ? 'rotate-180' : ''}`}>🔽</span>
+             </div>
+          </div>
+          {expandedBlocks.confeccion && (
+              <div className="mt-5">
+                  {modelo.procesos && modelo.procesos.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {modelo.procesos.map((proc, index) => (
+                              <div key={proc.id} className="flex justify-between items-center app-input border-[3px] neo-border p-3 rounded-2xl shadow-sm bg-white dark:bg-[#12181d]">
+                                  <div className="flex items-center gap-3 min-w-0">
+                                      <span className="font-black text-xs neo-badge w-7 h-7 flex justify-center items-center rounded-lg shrink-0 text-white">{index + 1}</span>
+                                      <span className="text-xs font-bold uppercase truncate dark:text-white text-[#14181c]">{proc.nombre}</span>
+                                  </div>
+                                  <span className="font-black text-[10px] bg-[#14181c] text-white px-2.5 py-1 rounded-lg border-2 border-[#14181c] dark:bg-black dark:border-white/20 shrink-0">
+                                      ${parseFloat(proc.costo).toFixed(2)}
+                                  </span>
+                              </div>
+                          ))}
+                      </div>
+                  ) : ( <div className="text-white/50 text-xs font-bold italic">No hay procesos registrados.</div> )}
+              </div>
+          )}
+      </div>
+
+      <div className="bg-white dark:bg-[#12181d] border-[3px] border-t-0 neo-border p-4 sm:p-6 rounded-t-none rounded-b-[2rem] transition-all relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl -z-10 pointer-events-none"></div>
+          <div className="flex justify-between items-center cursor-pointer select-none" onClick={() => toggleBlock('colores')}>
+             <div className="text-sm font-black text-purple-600 dark:text-purple-400 tracking-widest uppercase flex items-center gap-2">🎨 Colores</div>
+             <div className="flex items-center gap-3">
+                 <button onClick={(e) => { e.stopPropagation(); onEdit('seccion-colores'); }} className="bg-purple-600 text-white px-3 py-1 rounded-lg text-xs font-black neo-btn shadow-[3px_3px_0_#14181c]">✏️ Editar</button>
+                 <span className={`transition-transform duration-300 ${expandedBlocks.colores ? 'rotate-180' : ''}`}>🔽</span>
+             </div>
+          </div>
+          {expandedBlocks.colores && (
+              <div className="mt-5">
+                  {modelo.colores && modelo.colores.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {modelo.colores.map(c => (
+                              <div key={c.id} className="border-[3px] border-black rounded-2xl overflow-hidden bg-[#eef1e6] dark:bg-[#1a222a] shadow-[4px_4px_0_#14181c] flex flex-col">
+                                  <div className="flex">
+                                      <div className="w-1/2 aspect-square bg-gray-200 dark:bg-gray-800 border-r-[3px] border-b-[3px] border-black flex items-center justify-center p-1 relative group">
+                                          {c.pantoneImage ? <img src={c.pantoneImage} className="w-full h-full object-cover rounded-xl" /> : <span className="text-[10px] font-black opacity-50 uppercase text-center block">Sin<br/>Pantone</span>}
+                                          <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] font-black text-center py-0.5">PANTONE</div>
+                                      </div>
+                                      <div className="w-1/2 aspect-square bg-gray-200 dark:bg-gray-800 border-b-[3px] border-black flex items-center justify-center p-1 relative">
+                                          {c.fabricImage ? <img src={c.fabricImage} className="w-full h-full object-cover rounded-xl" /> : <span className="text-[10px] font-black opacity-50 uppercase text-center block">Sin<br/>Foto</span>}
+                                          <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] font-black text-center py-0.5">MUESTRA FÍSICA</div>
+                                      </div>
+                                  </div>
+                                  <div className="p-3 flex flex-col gap-1.5 flex-1 justify-center">
+                                      <div className="flex justify-between items-start">
+                                          <span className="font-black text-lg uppercase leading-none">{c.baseName || 'S/N'}</span>
+                                          {c.pantoneCode && <span className="bg-black text-white px-2 py-1 rounded text-[10px] font-black shrink-0 ml-2">{c.pantoneCode}</span>}
+                                      </div>
+                                      {c.clientName && <p className="text-[10px] font-bold text-gray-500 uppercase">REF: {c.clientName}</p>}
+                                      {c.formula && (
+                                          <button onClick={() => setFormulaViewModal({open: true, formula: c.formula})} className="mt-2 w-full py-1.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-black text-[10px] rounded border border-blue-500/30 uppercase">
+                                              Ver Fórmula
+                                          </button>
+                                      )}
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  ) : ( <div className="text-gray-500 text-xs font-bold italic">No hay colores registrados.</div> )}
+              </div>
+          )}
+      </div>
+    </div>
+    
+    <div className="app-card max-w-4xl mx-auto w-full bg-[#eef1e6] dark:bg-[#12181d] border-[3px] neo-border p-4 sm:p-6 rounded-[2rem] print:hidden shadow-xl mb-12 relative">
+        {modelo.pdfTemplateId && (
+            <div className="absolute -top-3 -right-3 bg-emerald-500 text-white border-[2px] border-black px-3 py-1 rounded-xl text-[10px] font-black shadow-sm transform rotate-3">
+                TEMPLATE ACTIVA
+            </div>
+        )}
+        <div 
+            className="flex justify-between items-center cursor-pointer select-none"
+            onClick={() => toggleBlock('pdf')}
+            onMouseDown={handlePdfTouchStart}
+            onMouseUp={cancelPdfTouch}
+            onMouseLeave={cancelPdfTouch}
+            onTouchStart={handlePdfTouchStart}
+            onTouchEnd={cancelPdfTouch}
+            onTouchMove={cancelPdfTouch} 
+            onTouchCancel={cancelPdfTouch}
+        >
+            <div className="text-sm font-black uppercase tracking-wider text-[#0f6b5c] dark:text-[#34d399] flex items-center gap-2">
+                🖨️ Generador de Etiqueta (PDF)
+            </div>
+            <span className={`text-sm transition-transform duration-300 ${expandedBlocks.pdf ? 'rotate-180' : ''}`}>🔽</span>
+        </div>
+        
+        {expandedBlocks.pdf && (
+            <div className="mt-4 flex flex-col gap-4 border-t-2 border-black/10 dark:border-white/10 pt-4">
+                <p className="text-[10px] font-bold opacity-70 mb-2 uppercase">Llene los datos manualmente para generar el formato de impresión físico.</p>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-[10px] font-black uppercase ml-1 opacity-70">Proveedor</label>
+                        <input value={pdfData.proveedor} onChange={e=>setPdfData({...pdfData, proveedor: e.target.value.toUpperCase()})} className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase mt-1 outline-none"/>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black uppercase ml-1 opacity-70">Estilo (Modelo Cliente)</label>
+                        <input value={estiloCliente} onChange={e=>setEstiloCliente(e.target.value.toUpperCase())} onBlur={handleEstiloBlur} placeholder={modelo.codigo} className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase mt-1 outline-none"/>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black uppercase ml-1 opacity-70">Talla</label>
+                        <select value={pdfData.talla} onChange={e=>setPdfData({...pdfData, talla: e.target.value.toUpperCase()})} className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase mt-1 outline-none">
+                            {tallasDisponibles.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black uppercase ml-1 opacity-70">Tela</label>
+                        <input value={pdfData.tela} onChange={e=>setPdfData({...pdfData, tela: e.target.value.toUpperCase()})} className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase mt-1 outline-none"/>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black uppercase ml-1 opacity-70">Número de Muestra</label>
+                        <input value={pdfData.muestra} onChange={e=>setPdfData({...pdfData, muestra: e.target.value.toUpperCase()})} placeholder="Opcional" className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase mt-1 outline-none"/>
+                    </div>
+                    <div className="sm:col-span-2">
+                        <div className="flex justify-between items-end mb-1">
+                            <label className="text-[10px] font-black uppercase ml-1 opacity-70">Composición (Manual o Calculada)</label>
+                            <button onClick={calcularComposicionAutomatica} type="button" className="bg-[#0f6b5c]/10 dark:bg-[#34d399]/10 text-[#0f6b5c] dark:text-[#34d399] border border-[#0f6b5c]/30 dark:border-[#34d399]/30 px-3 py-1 rounded-lg text-[9px] font-black uppercase hover:opacity-70 transition flex items-center gap-1 shadow-sm neo-btn">
+                                🤖 AUTO-CALCULAR
+                            </button>
+                        </div>
+                        <textarea value={pdfData.composicion} onChange={e=>setPdfData({...pdfData, composicion: e.target.value.toUpperCase()})} placeholder="Ej. 90% POLIAMIDA, 10% ELASTANO" rows="2" className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase outline-none resize-none"></textarea>
+                    </div>
+                    <div className="sm:col-span-2">
+                        <label className="text-[10px] font-black uppercase ml-1 opacity-70">Fecha</label>
+                        <input value={pdfData.fecha} onChange={e=>setPdfData({...pdfData, fecha: e.target.value})} className="w-full p-2.5 app-input rounded-xl text-xs font-black mt-1 outline-none"/>
+                    </div>
+                </div>
+
+                <div className="mt-6 border-t-2 border-black/10 dark:border-white/10 pt-6">
+                    <h4 className="text-xs font-black uppercase mb-4 opacity-70 tracking-widest text-[#0f6b5c] dark:text-[#34d399]">🎨 Estilos y Vista Previa</h4>
+                    
+                    <div className="flex flex-col lg:flex-row gap-6">
+                        <div className="flex-1 space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] font-black uppercase ml-1 opacity-70">Color Títulos</label>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <input type="color" value={pdfConfig.headerBg} onChange={(e) => setPdfConfig({...pdfConfig, headerBg: e.target.value})} className="w-10 h-10 p-1 app-input rounded-lg cursor-pointer" />
+                                        <input type="text" value={pdfConfig.headerBg} onChange={(e) => setPdfConfig({...pdfConfig, headerBg: e.target.value})} className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase outline-none" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase ml-1 opacity-70">Color Texto Títulos</label>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <input type="color" value={pdfConfig.headerColor} onChange={(e) => setPdfConfig({...pdfConfig, headerColor: e.target.value})} className="w-10 h-10 p-1 app-input rounded-lg cursor-pointer" />
+                                        <input type="text" value={pdfConfig.headerColor} onChange={(e) => setPdfConfig({...pdfConfig, headerColor: e.target.value})} className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase outline-none" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase ml-1 opacity-70">Color de Bordes</label>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <input type="color" value={pdfConfig.borderColor} onChange={(e) => setPdfConfig({...pdfConfig, borderColor: e.target.value})} className="w-10 h-10 p-1 app-input rounded-lg cursor-pointer" />
+                                        <input type="text" value={pdfConfig.borderColor} onChange={(e) => setPdfConfig({...pdfConfig, borderColor: e.target.value})} className="w-full p-2.5 app-input rounded-xl text-xs font-black uppercase outline-none" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase ml-1 opacity-70">Estilo de Borde</label>
+                                    <select value={pdfConfig.borderStyle} onChange={(e) => setPdfConfig({...pdfConfig, borderStyle: e.target.value})} className="w-full mt-1 p-2.5 app-input rounded-xl text-xs font-black uppercase outline-none">
+                                        <option value="solid">Sólido</option>
+                                        <option value="dashed">Punteado largo</option>
+                                        <option value="dotted">Punteado corto</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                                <button onClick={savePdfConfigToModel} className="flex-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase hover:bg-blue-500/20 transition-colors">
+                                    💾 Guardar a este Modelo
+                                </button>
+                                <button onClick={savePdfConfigToClient} className="flex-1 bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase hover:bg-purple-500/20 transition-colors">
+                                    🏢 Predeterminar para Cliente
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex-1 flex flex-col items-center justify-center bg-gray-200 dark:bg-[#0a0e11] rounded-2xl p-4 border-2 border-dashed neo-border overflow-x-auto">
+                            <span className="text-[10px] font-black opacity-50 mb-2 uppercase block w-full text-center">Vista Previa Real</span>
+                            <div id="etiqueta-print-preview" className="bg-white shadow-[8px_8px_0_rgba(0,0,0,0.2)]">
+                                {renderPdfContent()}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-6 flex justify-end">
+                        <button onClick={generarPDFjsPDFDirecto} className="w-full sm:w-auto app-btn-secondary px-8 py-4 rounded-xl font-black text-sm neo-btn whitespace-nowrap flex items-center justify-center gap-2">
+                            🖨️ Generar PDF (jsPDF Alta Calidad / Rotado)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+    </div>
+
+    {formulaViewModal.open && (
+         <div className="fixed inset-0 z-[600] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+             <div className="app-card w-full max-w-sm p-6 rounded-3xl relative shadow-[6px_6px_0_#14181c]">
+                 <button onClick={() => setFormulaViewModal({open: false, formula: ''})} className="absolute top-4 right-4 text-xl font-bold opacity-70">❌</button>
+                 <h3 className="font-black mb-4 uppercase text-blue-600 dark:text-blue-400">Receta / Fórmula</h3>
+                 <div className="bg-gray-100 dark:bg-[#1a222a] p-4 rounded-xl border-2 border-dashed neo-border text-sm font-mono whitespace-pre-wrap">
+                     {formulaViewModal.formula}
+                 </div>
+             </div>
+         </div>
+    )}
+    </>
+  );
+};
+
+const App = () => {
+  const [modelos, setModelos] = useState([]);
+  const [clientesData, setClientesData] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [inventory, setInventory] = useState([]);
+  const [hilaturasRouss, setHilaturasRouss] = useState([]);
+  
+  const [nightMode, setNightMode] = useState(() => {
+    return localStorage.getItem('maes_night_mode') === 'true';
+  });
+
+  const [viewMode, setViewMode] = useState('grid');
+
+  useEffect(() => {
+    if (nightMode) {
+      document.body.classList.add('night-mode');
+      localStorage.setItem('maes_night_mode', 'true');
+    } else {
+      document.body.classList.remove('night-mode');
+      localStorage.setItem('maes_night_mode', 'false');
+    }
+  }, [nightMode]);
+  
+  const [viewState, setViewState] = useState({ view: 'clients', client: null, model: null });
+  
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [targetClientForEdit, setTargetClientForEdit] = useState(null);
+  
+  const [customizerModalOpen, setCustomizerModalOpen] = useState(false);
+  const [editingClientConfig, setEditingClientConfig] = useState(null);
+
+  useEffect(() => {
+    const unsubInv = db.collection('inventory').doc('main').onSnapshot(d => {
+        setInventory(d.exists && d.data().items ? d.data().items : []);
+    });
+    
+    const unsubRouss = db.collection('hilaturas-rouss').onSnapshot(snap => {
+        const arr = [];
+        snap.forEach(doc => arr.push({ id: doc.id, ...doc.data() }));
+        setHilaturasRouss(arr);
+    });
+
+    return () => {
+        unsubInv();
+        unsubRouss();
+    };
+  }, []);
+
+  const fetchTodo = async () => {
+    setLoading(true);
+    try {
+      const [activasSnap, inactivasSnap, confeccionSnap, clientesSnap] = await Promise.all([
+        db.collection('plantillas').get(),
+        db.collection('plantillas_inactivas').get(),
+        db.collection('modelos_confeccion').get(),
+        db.collection('clientes').get()
+      ]);
+
+      const cData = {};
+      clientesSnap.forEach(doc => { cData[doc.id] = doc.data(); });
+      setClientesData(cData);
+
+      const procesosMap = {};
+      confeccionSnap.forEach(doc => { procesosMap[doc.id] = doc.data().procesos || []; });
+
+      const map = new Map();
+      activasSnap.forEach(doc => {
+        const data = doc.data();
+        map.set(doc.id, { 
+          codigo: doc.id, 
+          cliente: data.cliente || 'SIN CLIENTE', 
+          threading: data.threading || [], 
+          activas: data.subPiecesData || [], 
+          colores: data.colores || [],
+          inactivas: [], 
+          procesos: procesosMap[doc.id] || [],
+          productionMode: data.productionMode || 'INDIVIDUAL',
+          kitEligibleSizes: data.kitEligibleSizes || [],
+          kitDefinition: data.kitDefinition || null,
+          estiloCliente: data.estiloCliente || '',
+          pdfTemplateId: data.pdfTemplateId || null,
+          pdfConfig: data.pdfConfig || null
+        });
+      });
+
+      inactivasSnap.forEach(doc => {
+        const data = doc.data();
+        if (map.has(doc.id)) { 
+          map.get(doc.id).inactivas = data.subPiecesData || []; 
+          if (!map.get(doc.id).estiloCliente && data.estiloCliente) map.get(doc.id).estiloCliente = data.estiloCliente;
+          if (!map.get(doc.id).pdfTemplateId && data.pdfTemplateId) map.get(doc.id).pdfTemplateId = data.pdfTemplateId;
+          if (!map.get(doc.id).pdfConfig && data.pdfConfig) map.get(doc.id).pdfConfig = data.pdfConfig;
+          if (map.get(doc.id).colores.length === 0 && data.colores) map.get(doc.id).colores = data.colores;
+        } 
+        else { 
+          map.set(doc.id, { 
+            codigo: doc.id, 
+            cliente: data.cliente || 'SIN CLIENTE', 
+            threading: data.threading || [], 
+            colores: data.colores || [],
+            activas: [], 
+            inactivas: data.subPiecesData || [], 
+            procesos: procesosMap[doc.id] || [],
+            productionMode: data.productionMode || 'INDIVIDUAL',
+            kitEligibleSizes: data.kitEligibleSizes || [],
+            kitDefinition: data.kitDefinition || null,
+            estiloCliente: data.estiloCliente || '',
+            pdfTemplateId: data.pdfTemplateId || null,
+            pdfConfig: data.pdfConfig || null
+          }); 
+        }
+      });
+
+      setModelos(Array.from(map.values()).sort((a, b) => a.codigo.localeCompare(b.codigo)));
+    } catch (error) { console.error(error); }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchTodo(); }, []);
+
+  useEffect(() => {
+      if (!window.history.state) {
+          window.history.replaceState({ view: 'clients' }, '');
+      }
+
+      const handlePop = (e) => {
+          if (editingTemplate !== null) {
+              if (!window.isSavingTemplate) {
+                  const ans = window.confirm("¿Seguro que quieres salir sin guardar los cambios?");
+                  if (!ans) {
+                      window.history.pushState({ modal: 'edit' }, '');
+                      return;
+                  }
+              }
+              setEditingTemplate(null);
+              window.isSavingTemplate = false;
+              if (e.state && e.state.view) {
+                  setViewState({ view: e.state.view, client: e.state.client || null, model: e.state.model || null });
+              }
+              return;
+          }
+
+          if (e.state && e.state.view) {
+              setViewState({ view: e.state.view, client: e.state.client || null, model: e.state.model || null });
+          }
+      };
+
+      window.addEventListener('popstate', handlePop);
+      return () => window.removeEventListener('popstate', handlePop);
+  }, [editingTemplate]);
+
+  const navToModels = (client) => {
+      window.history.pushState({ view: 'models', client }, '');
+      setViewState({ view: 'models', client, model: null });
+  };
+  const navToFicha = (client, model) => {
+      window.history.pushState({ view: 'ficha', client, model }, '');
+      setViewState({ view: 'ficha', client, model });
+  };
+  const navToEdit = (template, targetSection = null) => {
+      window.history.pushState({ modal: 'edit' }, '');
+      setEditingTemplate({ template, targetSection });
+  };
+  const navBack = () => {
+      window.history.back();
+  };
+
+  const handleDeleteClient = async (clienteTarget) => {
+      if(!confirm(`¿ELIMINAR por completo TODOS los modelos de ${clienteTarget}? Esta acción es irreversible.`)) return;
+      setLoading(true);
+      try {
+          const toDelete = modelos.filter(m => m.cliente === clienteTarget);
+          const batch = db.batch();
+          for(const m of toDelete) {
+              batch.delete(db.collection('plantillas').doc(m.codigo));
+              batch.delete(db.collection('plantillas_inactivas').doc(m.codigo));
+              batch.delete(db.collection('modelos_confeccion').doc(m.codigo));
+          }
+          batch.delete(db.collection('clientes').doc(clienteTarget));
+          await batch.commit();
+          setEditingClientConfig(null);
+          navBack(); 
+          fetchTodo();
+      } catch(e) { alert('Error eliminando cliente'); setLoading(false); }
+  };
+
+  const handleToggleMaquina = async (modelo, talla, maquina, isCurrentlyActive) => {
+    const activeRef = db.collection('plantillas').doc(modelo.codigo);
+    const inactiveRef = db.collection('plantillas_inactivas').doc(modelo.codigo);
+
+    const piezasDeEstaMaquinaActivas = modelo.activas.filter(p => p.talla === talla && p.maquina === maquina);
+    const piezasDeEstaMaquinaInactivas = modelo.inactivas.filter(p => p.talla === talla && p.maquina === maquina);
+
+    let nuevasActivas = [...modelo.activas];
+    let nuevasInactivas = [...modelo.inactivas];
+
+    if (isCurrentlyActive) {
+      nuevasActivas = nuevasActivas.filter(p => !(p.talla === talla && p.maquina === maquina));
+      nuevasInactivas = [...nuevasInactivas, ...piezasDeEstaMaquinaActivas];
+    } else {
+      nuevasInactivas = nuevasInactivas.filter(p => !(p.talla === talla && p.maquina === maquina));
+      nuevasActivas = [...nuevasActivas, ...piezasDeEstaMaquinaInactivas];
+    }
+
+    setModelos(prev => prev.map(m => m.codigo === modelo.codigo ? { ...m, activas: nuevasActivas, inactivas: nuevasInactivas } : m));
+    
+    if (viewState.view === 'ficha' && viewState.model?.codigo === modelo.codigo) {
+        setViewState(prev => ({ ...prev, model: { ...prev.model, activas: nuevasActivas, inactivas: nuevasInactivas } }));
+    }
+
+    const batch = db.batch();
+    const kitSetup = buildKitDefinition(nuevasActivas);
+    batch.set(activeRef, { codigo: modelo.codigo, cliente: modelo.cliente, threading: modelo.threading || [], subPiecesData: nuevasActivas, ...kitSetup }, { merge: true });
+    batch.set(inactiveRef, { codigo: modelo.codigo, cliente: modelo.cliente, threading: modelo.threading || [], subPiecesData: nuevasInactivas, ...kitSetup }, { merge: true });
+    try { await batch.commit(); } catch (err) { alert("Error al guardar el estado."); console.error(err); }
+  };
+
+  const handleSelectPdfTemplate = async (codigo, templateId) => {
+      try {
+          const payload = { pdfTemplateId: templateId };
+          await db.collection('plantillas').doc(codigo).set(payload, { merge: true });
+          await db.collection('plantillas_inactivas').doc(codigo).set(payload, { merge: true });
+          
+          setModelos(prev => prev.map(m => m.codigo === codigo ? { ...m, pdfTemplateId: templateId } : m));
+          if (viewState.view === 'ficha' && viewState.model?.codigo === codigo) {
+              setViewState(prev => ({ ...prev, model: { ...prev.model, pdfTemplateId: templateId } }));
+          }
+      } catch (e) { console.error(e); alert("Error asignando plantilla PDF"); }
+  };
+
+  const themeTimer = useRef(null);
+  const handleThemeTouchStart = () => {
+      themeTimer.current = setTimeout(() => {
+          const pin = prompt("🔐 Modo Desarrollador.\nIngrese PIN:");
+          if (pin === "13524680") {
+              setCustomizerModalOpen(true);
+          } else if (pin) {
+              alert("PIN incorrecto");
+          }
+      }, 5000);
+  };
+  const cancelThemeTouch = () => {
+      if (themeTimer.current) clearTimeout(themeTimer.current);
+  };
+
+  const modelosAgrupados = useMemo(() => {
+      return modelos.reduce((acc, curr) => {
+          const cli = curr.cliente || 'SIN CLIENTE';
+          if (!acc[cli]) acc[cli] = [];
+          acc[cli].push(curr);
+          return acc;
+      }, {});
+  }, [modelos]);
+
+  let mainContent;
+  if (loading) {
+      mainContent = (
+          <div className="flex flex-col items-center justify-center py-32 opacity-60">
+            <div className="text-4xl animate-spin mb-4">🌀</div>
+            <p className="font-black text-sm tracking-wide">Cargando base de datos...</p>
+          </div>
+      );
+  } else if (viewState.view === 'clients') {
+      mainContent = (
+          <div className={
+              viewMode === 'grid' ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 pt-2" :
+              viewMode === 'list' ? "flex flex-col gap-4 pt-2" :
+              "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pt-2"
+          }>
+              {Object.keys(modelosAgrupados).sort((a,b)=>a.localeCompare(b)).map(cliente => (
+                  <ClientCard 
+                      key={cliente} 
+                      cliente={cliente} 
+                      logoData={clientesData[cliente]} 
+                      viewMode={viewMode}
+                      modelCount={modelosAgrupados[cliente].length}
+                      onClick={() => navToModels(cliente)}
+                      onEdit={() => {
+                          setTargetClientForEdit(cliente);
+                          setPinModalOpen(true);
+                      }}
+                  />
+              ))}
+              {Object.keys(modelosAgrupados).length === 0 && (
+                <div className="col-span-full text-center py-12 font-black border-[3px] border-dashed neo-border rounded-[2rem] opacity-70 bg-white/50 dark:bg-black/50">
+                  No se encontraron clientes. ¡Crea una plantilla nueva!
+                </div>
+              )}
+          </div>
+      );
+  } else if (viewState.view === 'models') {
+      const clienteStr = viewState.client;
+      const mods = modelosAgrupados[clienteStr] || [];
+      const clientBg = clientesData[clienteStr]?.logoBg || '#ffffff';
+      const clientSrc = clientesData[clienteStr]?.logoUrl || clientesData[clienteStr]?.logoSVG || null;
+
+      mainContent = (
+          <div>
+              <div className="flex items-stretch gap-0 mb-8 rounded-[2rem] overflow-hidden border-[3px] neo-border shadow-[6px_6px_0_#14181c] dark:shadow-[4px_4px_0_#000]">
+                  {clientSrc ? (
+                      <div className="w-24 h-24 flex items-center justify-center p-2 border-r-[3px] neo-border shrink-0 bg-white" style={{ backgroundColor: clientBg }}>
+                          <img src={clientSrc} className="w-full h-full object-contain" alt={clienteStr} />
+                      </div>
+                  ) : (
+                      <div className="w-24 h-24 bg-white dark:bg-[#1a222a] border-r-[3px] neo-border flex items-center justify-center shrink-0">
+                          <span className="text-3xl font-black">{clienteStr.substring(0,2)}</span>
+                      </div>
+                  )}
+                  <div className="flex-1 bg-[#0f6b5c] dark:bg-[#0d9488] p-4 flex flex-col justify-center text-white">
+                      <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight truncate">{clienteStr}</h2>
+                      <p className="text-sm font-bold opacity-90 mt-1">{mods.length} Modelos Registrados</p>
+                  </div>
+              </div>
+              
+              <div className={
+                  viewMode === 'grid' ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5 pt-2" :
+                  viewMode === 'list' ? "flex flex-col gap-4 pt-2" :
+                  "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-2"
+              }>
+                  {mods.map(modelo => (
+                      <ModelThumbnail key={modelo.codigo} modelo={modelo} viewMode={viewMode} onClick={() => navToFicha(clienteStr, modelo)} />
+                  ))}
+              </div>
+          </div>
+      );
+  } else if (viewState.view === 'ficha') {
+      mainContent = (
+          <div className="flex flex-col items-center">
+              <FichaTecnica 
+                  modelo={viewState.model} 
+                  logoData={clientesData[viewState.client]} 
+                  onToggle={handleToggleMaquina} 
+                  onEdit={(section) => navToEdit(viewState.model, section)} 
+                  onSelectPdfTemplate={handleSelectPdfTemplate}
+                  db={db}
+                  hilaturasRouss={hilaturasRouss}
+              />
+          </div>
+      );
+  }
+
+  return (
+    <div className="min-h-screen pb-12">
+      {editingTemplate && <TemplateEditor template={editingTemplate.template} targetSection={editingTemplate.targetSection} inventory={inventory} onClose={() => navBack()} onSave={() => { fetchTodo(); navBack(); }} onDelete={() => { navBack(); navBack(); fetchTodo(); }} />}
+      {editingClientConfig && <ClientConfigModal cliente={editingClientConfig} logoData={clientesData[editingClientConfig]} onClose={() => setEditingClientConfig(null)} onSave={(c, data) => setClientesData(prev => ({...prev, [c]: data}))} onDelete={handleDeleteClient} />}
+      {pinModalOpen && (
+          <PinModal 
+              onSuccess={() => {
+                  setPinModalOpen(false);
+                  setEditingClientConfig(targetClientForEdit);
+                  setTargetClientForEdit(null);
+              }} 
+              onClose={() => {
+                  setPinModalOpen(false);
+                  setTargetClientForEdit(null);
+              }} 
+          />
+      )}
+      {customizerModalOpen && <CustomizerModal onClose={() => setCustomizerModalOpen(false)} />}
+
+      {viewState.view !== 'clients' && (
+          <div className="app-nav sticky top-0 z-50 flex items-center justify-between h-16 px-4 print:hidden">
+            <div className="flex-1">
+                <button onClick={() => navBack()} className="font-black text-xs px-3 py-1.5 rounded-xl app-card neo-btn flex items-center gap-1 w-max">
+                    ⬅️ Volver
+                </button>
+            </div>
+            <h1 className="text-sm font-black flex-1 text-center truncate uppercase tracking-wider">
+                {viewState.view === 'models' ? viewState.client : 
+                 viewState.view === 'ficha' ? viewState.model?.codigo : ''}
+            </h1>
+            <div className="flex-1 flex justify-end items-center gap-2">
+                <button 
+                  onClick={() => { cancelThemeTouch(); setNightMode(!nightMode); }} 
+                  onMouseDown={handleThemeTouchStart}
+                  onMouseUp={cancelThemeTouch}
+                  onMouseLeave={cancelThemeTouch}
+                  onTouchStart={handleThemeTouchStart}
+                  onTouchEnd={cancelThemeTouch}
+                  onTouchMove={cancelThemeTouch} 
+                  onTouchCancel={cancelThemeTouch}
+                  className="app-card px-2.5 py-1.5 rounded-xl text-xs font-black neo-btn select-none"
+                  title="Cambiar modo"
+                >
+                  {nightMode ? '🌙' : '☀️'}
+                </button>
+                <button onClick={() => navToEdit({ codigo: '', cliente: '', activas: [], inactivas: [], procesos: [], colores: [] })} className="app-btn-primary sm:hidden px-3 py-1.5 rounded-xl font-black text-xs neo-btn">➕</button>
+            </div>
+          </div>
+      )}
+
+      <div className={`p-4 max-w-7xl mx-auto print:p-0 ${viewState.view === 'clients' ? 'pt-6' : 'pt-6'}`}>
+        
+        {(viewState.view === 'clients' || viewState.view === 'models') && (
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                <button onClick={() => navToEdit({ codigo: '', cliente: '', activas: [], inactivas: [], procesos: [], colores: [] })} className="w-full sm:w-auto app-btn-primary px-6 py-3.5 rounded-[1.5rem] font-black flex items-center justify-center gap-2 neo-btn text-base">
+                    ➕ Nueva Plantilla
+                </button>
+                <div className="flex bg-[#14181c]/10 dark:bg-white/10 p-1.5 rounded-2xl gap-1 border-[3px] border-transparent dark:border-[#2a3b4c]">
+                    <button onClick={() => setViewMode('grid')} className={`p-2.5 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-[#1a222a] border-[3px] border-black shadow-[2px_2px_0_#14181c] dark:shadow-[2px_2px_0_#000]' : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-60 hover:opacity-100 border-[3px] border-transparent'}`} title="Cuadrícula">🔲</button>
+                    <button onClick={() => setViewMode('list')} className={`p-2.5 rounded-xl transition-all ${viewMode === 'list' ? 'bg-white dark:bg-[#1a222a] border-[3px] border-black shadow-[2px_2px_0_#14181c] dark:shadow-[2px_2px_0_#000]' : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-60 hover:opacity-100 border-[3px] border-transparent'}`} title="Lista">📄</button>
+                    <button onClick={() => setViewMode('compact')} className={`p-2.5 rounded-xl transition-all ${viewMode === 'compact' ? 'bg-white dark:bg-[#1a222a] border-[3px] border-black shadow-[2px_2px_0_#14181c] dark:shadow-[2px_2px_0_#000]' : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-60 hover:opacity-100 border-[3px] border-transparent'}`} title="Compacto">🗜️</button>
+                </div>
+            </div>
+        )}
+
+        {mainContent}
+
+      </div>
+    </div>
+  );
+};
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
