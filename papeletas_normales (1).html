@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Etiquetas · MAES Producción</title>
+
+    <link rel="icon" href="https://raw.githubusercontent.com/jesusvn1993mplvt3-ai/CIRINEO/refs/heads/main/icon.ico">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bwip-js/3.3.0/bwip-js-min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto+Condensed:wght@400;700&family=Black+Ops+One&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #f1f5f9;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        .preview-wrapper {
+            width: 100%;
+            max-width: 600px;
+            aspect-ratio: 6/4;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+            background: white;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0 auto;
+        }
+
+        .label-layout {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            border: 1px solid #ddd;
+            padding: 0.25in;
+            box-sizing: border-box;
+            background: white;
+            font-family: 'Roboto Condensed', sans-serif;
+        }
+        .col-img {
+            width: 25%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-right: 2px solid #000;
+            padding-right: 5px;
+            overflow: hidden;
+        }
+        .col-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .col-data {
+            width: 60%;
+            display: flex;
+            flex-direction: column;
+            border-right: 2px solid #000;
+        }
+        .col-barcode {
+            width: 15%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        .lbl-row {
+            display: flex;
+            border-bottom: 2px solid #000;
+            width: 100%;
+        }
+        .lbl-row:last-child {
+            border-bottom: none;
+        }
+        .lbl-col {
+            border-right: 2px solid #000;
+            padding: 2px 4px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow: visible;
+        }
+        .lbl-col:last-child {
+            border-right: none;
+        }
+
+        .lbl-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: #555;
+            text-transform: uppercase;
+            line-height: 1;
+            margin-bottom: 1px;
+        }
+        .lbl-big {
+            font-family: 'Oswald', sans-serif;
+            font-weight: 700;
+            font-size: 32px;
+            line-height: 0.9;
+            color: #000;
+        }
+        .lbl-medium {
+            font-family: 'Oswald', sans-serif;
+            font-weight: 700;
+            font-size: 20px;
+            line-height: 1;
+            color: #000;
+        }
+        .lbl-std {
+            font-size: 14px;
+            font-weight: 700;
+            color: #000;
+            line-height: 1.2;
+        }
+
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .accordion-content {
+            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            overflow: hidden;
+        }
+
+        /* Spinner de carga */
+        .spin {
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;color:#64748b;">
+            Cargando MAES…
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            function showFatal(msg) {
+                var root = document.getElementById('root');
+                if (!root) return;
+                root.innerHTML =
+                    '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:sans-serif;background:#0f172a;">' +
+                    '<div style="max-width:420px;background:#fff;border-radius:16px;padding:28px;text-align:center;box-shadow:0 20px 40px rgba(0,0,0,.3);">' +
+                    '<div style="font-size:40px;margin-bottom:8px;">⚠️</div>' +
+                    '<h1 style="font-size:18px;font-weight:800;color:#0f172a;margin:0 0 8px;">No se pudo cargar la aplicación</h1>' +
+                    '<p style="font-size:14px;color:#475569;line-height:1.5;margin:0 0 20px;">' + msg + '</p>' +
+                    '<button onclick="location.reload()" style="background:#4f46e5;color:#fff;border:none;padding:12px 20px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Reintentar</button>' +
+                    '</div></div>';
+            }
+            window.__maesShowFatal = showFatal;
+
+            window.addEventListener('error', function(e) {
+                console.error('[MAES] Error global:', e.error || e.message);
+            });
+            window.addEventListener('unhandledrejection', function(e) {
+                console.error('[MAES] Promesa no manejada:', e.reason);
+            });
+
+            window.addEventListener('load', function() {
+                setTimeout(function() {
+                    var missing = [];
+                    if (typeof React === 'undefined') missing.push('React');
+                    if (typeof ReactDOM === 'undefined') missing.push('ReactDOM');
+                    if (typeof Babel === 'undefined') missing.push('Babel');
+                    if (typeof firebase === 'undefined') missing.push('Firebase');
+                    if (typeof bwipjs === 'undefined') missing.push('Código de barras');
+                    if (typeof window.jspdf === 'undefined') missing.push('Generador PDF');
+                    var root = document.getElementById('root');
+                    var stillPlaceholder = root && root.children.length === 1 && root.children[0]
+                        .textContent.indexOf('Cargando') !== -1;
+                    if (missing.length && stillPlaceholder) {
+                        showFatal('No se pudieron cargar estos componentes: ' + missing.join(', ') +
+                            '. Revisa la conexión a internet de este equipo e inténtalo de nuevo.');
+                    }
+                }, 8000);
+            });
+        })();
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+        // ============ CONFIGURACIÓN FIREBASE ============
+        const firebaseConfig = {
+            apiKey: "AIzaSyCngQL1pdqghv2vbjkPycT1Xf0C46f7jYs",
+            authDomain: "cirineo-cec21.firebaseapp.com",
+            projectId: "cirineo-cec21",
+            storageBucket: "cirineo-cec21.firebasestorage.app",
+            messagingSenderId: "620210618284",
+            appId: "1:620210618284:web:482bab9bf74650fff18409",
+            measurementId: "G-B7YLM78RVW"
+        };
+
+        let db = null;
+        let firebaseInitError = null;
+        try {
+            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            db.enablePersistence({ synchronizeTabs: true }).catch((e) => {
+                console.warn('[MAES] Persistencia offline no disponible:', e.code || e.message);
+            });
+        } catch (e) {
+            firebaseInitError = e;
+            console.error('[MAES] Error inicializando Firebase:', e);
+        }
+
+        // ============ CONSTANTES GLOBALES ============
+        const SHIFT_HOURS = 12;
+        const PRINT_IMG_BOX_W = 125;
+        const PRINT_IMG_BOX_H = 336;
+        const IMAGE_FETCH_TIMEOUT_MS = 7000;
+        const LARGE_BATCH_WARNING = 150;
+        const imageCache = {};
+        const NEG = '__NOT_FOUND__';
+
+        // ============ MAPEO DE MESES ============
+        const MESES_MAP = {
+            'ENE': 'Enero',
+            'FEB': 'Febrero',
+            'MAR': 'Marzo',
+            'ABR': 'Abril',
+            'MAY': 'Mayo',
+            'JUN': 'Junio',
+            'JUL': 'Julio',
+            'AGO': 'Agosto',
+            'SEP': 'Septiembre',
+            'OCT': 'Octubre',
+            'NOV': 'Noviembre',
+            'DIC': 'Diciembre'
+        };
+        const MESES_ORDEN = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+
+        const parsePartidaMes = (partidaId) => {
+            const match = String(partidaId || '').match(/^([A-Z]{3})(\d{2})/i);
+            if (match) {
+                const mesAbr = match[1].toUpperCase();
+                const año = '20' + match[2];
+                const nombre = MESES_MAP[mesAbr] || mesAbr;
+                return { mes: mesAbr, año, nombre, key: `${año}-${mesAbr}` };
+            }
+            return { mes: '???', año: '????', nombre: 'Sin fecha', key: 'sin-fecha' };
+        };
+
+        // ============ UTILIDADES ============
+        const withTimeout = (promise, ms, fallbackValue = null) => {
+            return new Promise((resolve) => {
+                let settled = false;
+                const timer = setTimeout(() => {
+                    if (!settled) { settled = true;
+                        resolve(fallbackValue); }
+                }, ms);
+                promise.then((v) => {
+                    if (!settled) { settled = true;
+                        clearTimeout(timer);
+                        resolve(v); }
+                }).catch(() => {
+                    if (!settled) { settled = true;
+                        clearTimeout(timer);
+                        resolve(fallbackValue); }
+                });
+            });
+        };
+
+        // ============ GESTIÓN DE IMÁGENES ============
+        const probeImageUrl = (baseUrl, codigo, ext) => withTimeout(new Promise((resolve) => {
+            const url = `${baseUrl}/${codigo}.${ext}`;
+            const img = new Image();
+            img.onload = () => resolve(url);
+            img.onerror = () => resolve(null);
+            img.src = url;
+        }), IMAGE_FETCH_TIMEOUT_MS, null);
+
+        const fetchImageForModel = async (codigo, repoSources) => {
+            if (!codigo) return null;
+            if (imageCache[codigo] === NEG) return null;
+            if (imageCache[codigo]) return imageCache[codigo];
+            if (db) {
+                try {
+                    const doc = await withTimeout(
+                        db.collection('imagenes_editadas').doc(codigo).get(),
+                        IMAGE_FETCH_TIMEOUT_MS,
+                        null
+                    );
+                    if (doc && doc.exists && doc.data().localImage) {
+                        imageCache[codigo] = doc.data().localImage;
+                        return imageCache[codigo];
+                    }
+                } catch (e) { console.warn('[MAES] Error leyendo imagen base64 para', codigo, e); }
+            }
+            if (repoSources && repoSources.length > 0) {
+                const exts = ['jpg', 'jpeg', 'png', 'webp'];
+                for (const source of repoSources) {
+                    if (!source || !source.url) continue;
+                    for (const ext of exts) {
+                        const url = await probeImageUrl(source.url, codigo, ext);
+                        if (url) { imageCache[codigo] = url; return url; }
+                    }
+                }
+            }
+            imageCache[codigo] = NEG;
+            return null;
+        };
+
+        // ============ PROCESADOR TÉRMICO ============
+        const processImageForPrint = (url, mode, boxW, boxH, scale = 3) => withTimeout(new Promise((resolve) => {
+            if (!url) return resolve(null);
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                let canvas = null;
+                try {
+                    canvas = document.createElement('canvas');
+                    const imgW = Math.round(boxW * scale);
+                    const imgH = Math.round(boxH * scale);
+                    canvas.width = imgW;
+                    canvas.height = imgH;
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                    const boxRatio = imgW / imgH,
+                        natRatio = img.naturalWidth / img.naturalHeight;
+                    let sw = img.naturalWidth,
+                        sh = img.naturalHeight;
+                    if (natRatio > boxRatio) { sw = img.naturalHeight * boxRatio; } else { sh = img
+                            .naturalWidth / boxRatio; }
+                    const sx = (img.naturalWidth - sw) / 2,
+                        sy = (img.naturalHeight - sh) / 2;
+                    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, imgW, imgH);
+                    let result;
+                    if (mode === 'color') {
+                        result = canvas.toDataURL('image/jpeg', 0.92);
+                    } else {
+                        const imageData = ctx.getImageData(0, 0, imgW, imgH);
+                        const data = imageData.data;
+                        for (let i = 0; i < data.length; i += 4) {
+                            const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                            let val = mode === 'threshold' ? (gray < 128 ? 0 : 255) : gray;
+                            data[i] = val;
+                            data[i + 1] = val;
+                            data[i + 2] = val;
+                        }
+                        ctx.putImageData(imageData, 0, 0);
+                        result = canvas.toDataURL('image/jpeg', 0.92);
+                    }
+                    resolve(result);
+                } catch (e) {
+                    console.warn('[MAES] No se pudo procesar la imagen (posible bloqueo CORS):', e.message);
+                    resolve(null);
+                } finally {
+                    if (canvas) { canvas.width = 0;
+                        canvas.height = 0; }
+                }
+            };
+            img.onerror = () => resolve(null);
+            img.src = url;
+        }), IMAGE_FETCH_TIMEOUT_MS, null);
+
+        // ============ COMPONENTE VISUAL DE ETIQUETA ============
+        const ProductionLabel = React.memo(({ labelData, imgSrc }) => {
+            const canvasRef = useRef(null);
+            const p = labelData;
+            if (!p) return null;
+            const barcodeValue = p.packageCode || 'S/N';
+            const fechaEntrega = p.fechaEntrega || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                .toLocaleDateString('es-MX');
+            const tiempo = parseFloat(p.tiempo);
+            const pzas1hr = tiempo > 0 ? Math.round(60 / tiempo) : '-';
+            const pzasShift = tiempo > 0 ? Math.round((SHIFT_HOURS * 60) / tiempo) : '-';
+            const textoCentral = p.color || 'N/A';
+            let centralFontSize = textoCentral.length <= 6 ? '64px' : textoCentral.length <= 10 ? '52px' :
+                '38px';
+
+            useEffect(() => {
+                if (canvasRef.current && barcodeValue && typeof bwipjs !== 'undefined') {
+                    try {
+                        bwipjs.toCanvas(canvasRef.current, { bcid: 'pdf417', text: barcodeValue,
+                            scale: 3, height: 10, includetext: false });
+                    } catch (e) {
+                        console.warn('[MAES] No se pudo generar el código de barras para',
+                            barcodeValue, e.message);
+                    }
+                }
+            }, [barcodeValue]);
+
+            return (
+                <div className="label-layout">
+                    <div className="col-img">
+                        {imgSrc ? (
+                            <img src={imgSrc} alt={p.codigo} />
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-slate-300">
+                                <span className="text-3xl mb-1">🚫📷</span>
+                                <span className="text-[10px] font-bold text-center">SIN<br/>IMAGEN</span>
+                            </div>
+                        )}
+                    </div>
+                    <div className="col-data">
+                        <div className="lbl-row" style={{height: '15%'}}>
+                            <div className="lbl-col" style={{width: '65%'}}>
+                                <div className="lbl-title">MODELO</div>
+                                <div className="lbl-big" style={{fontSize: '32px'}}>{p.codigo || 'S/N'}</div>
+                            </div>
+                            <div className="lbl-col" style={{width: '35%'}}>
+                                <div className="lbl-title">TOTAL ORDEN</div>
+                                <div className="lbl-medium">{p.totalPedido || 0}</div>
+                            </div>
+                        </div>
+                        <div className="lbl-row" style={{height: '15%'}}>
+                            <div className="lbl-col" style={{width: '27%'}}><div className="lbl-title">CLIENTE</div><div className="lbl-std truncate">{p.cliente || '---'}</div></div>
+                            <div className="lbl-col" style={{width: '27%'}}><div className="lbl-title">PARTIDA</div><div className="lbl-std">{p.partida || '-'}</div></div>
+                            <div className="lbl-col" style={{width: '46%'}}><div className="lbl-title">PIEZA</div><div className="lbl-std truncate" style={{fontSize:'12px'}}>{p.piezaNombre || 'ESTANDAR'}</div></div>
+                        </div>
+                        <div className="lbl-row" style={{height: '24%', backgroundColor: '#000', color: '#FFF'}}>
+                            <div className="lbl-col" style={{width: '100%', border: 'none', alignItems: 'center', justifyContent: 'center', padding: '0', display: 'flex'}}>
+                                <span style={{fontFamily: "'Oswald', sans-serif", fontWeight: '700', fontSize: centralFontSize, lineHeight: '1', textAlign: 'center', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{textoCentral}</span>
+                            </div>
+                        </div>
+                        <div className="lbl-row" style={{height: '24%'}}>
+                            <div className="lbl-col" style={{width: '33%', textAlign: 'center'}}><div className="lbl-title">PAQUETE</div><div className="lbl-big" style={{fontSize: '36px'}}>{p.displayPackageId}</div></div>
+                            <div className="lbl-col" style={{width: '34%', backgroundColor: '#eee', textAlign: 'center'}}><div className="lbl-title">CANTIDAD</div><div className="lbl-big" style={{fontSize: '36px'}}>{p.piecesInPackage}</div></div>
+                            <div className="lbl-col" style={{width: '33%', textAlign: 'center', backgroundColor: '#000', color: '#fff'}}><div className="lbl-title" style={{color: '#ccc'}}>MAQUINA</div><div className="lbl-big" style={{fontSize: '48px', color: '#fff'}}>{p.maquina || '0'}</div></div>
+                        </div>
+                        <div className="lbl-row" style={{height: '11%'}}>
+                            <div className="lbl-col" style={{width: '25%'}}><div className="lbl-title" style={{fontSize:'9px'}}>TALLA</div><div className="lbl-medium" style={{fontSize:'16px'}}>{p.talla || 'U'}</div></div>
+                            <div className="lbl-col" style={{width: '25%'}}><div className="lbl-title" style={{fontSize:'9px'}}>PESO(g)</div><div className="lbl-std" style={{fontSize:'14px'}}>{p.peso || '-'}</div></div>
+                            <div className="lbl-col" style={{width: '25%'}}><div className="lbl-title" style={{fontSize:'9px'}}>PZS/HR</div><div className="lbl-std" style={{fontSize:'16px'}}>{pzas1hr}</div></div>
+                            <div className="lbl-col" style={{width: '25%'}}><div className="lbl-title" style={{fontSize:'9px'}}>{SHIFT_HOURS} HRS</div><div className="lbl-std" style={{fontSize:'16px'}}>{pzasShift}</div></div>
+                        </div>
+                        <div className="lbl-row" style={{flexGrow: 1, borderBottom: 'none', alignItems: 'center'}}>
+                            <div style={{fontSize: '9px', width: '100%', textAlign: 'center', fontWeight: 'bold'}}>ENTREGA: {fechaEntrega}</div>
+                        </div>
+                    </div>
+                    <div className="col-barcode">
+                        <div style={{transform: 'rotate(90deg)', transformOrigin: 'center', width: '3.5in', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}>
+                            <canvas ref={canvasRef} style={{width: '100%', height: 'auto'}}></canvas>
+                            <div style={{fontSize: '10px', fontFamily: 'monospace', marginTop: '5px'}}>{barcodeValue}</div>
+                        </div>
+                    </div>
+                </div>
+            );
+        });
+
+        // ============ RENDER PDF A CANVAS ============
+        const renderLabelToCanvas = async (p, processImgSrc) => {
+            const truncateToWidth = (ctx, text, maxWidth) => { text = String(text ?? ''); if (ctx.measureText(
+                    text).width <= maxWidth) return text; let lo = 0,
+                    hi = text.length; while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); const candidate =
+                        text.slice(0, mid) + '…'; if (ctx.measureText(candidate).width <= maxWidth) lo =
+                    mid; else hi = mid - 1; } return text.slice(0, lo) + '…'; };
+            const drawLabelCell = (ctx, { x, y, w, h, title, value, titleColor = '#555555', titleSize = 40,
+                valueFont, valueColor = '#000000', valueSize = 56, align = 'left', truncate = false,
+                padX = 16 }) => {
+                const innerX = x + padX,
+                    innerW = Math.max(0, w - padX * 2);
+                ctx.textBaseline = 'alphabetic';
+                const titleH = title ? titleSize * 1.15 : 0,
+                    gap = title ? titleSize * 0.25 : 0,
+                    valueH = valueSize * 1.05;
+                let cursorY = y + (h - (titleH + gap + valueH)) / 2; if (cursorY < y) cursorY = y;
+                const tx = align === 'center' ? x + w / 2 : innerX;
+                ctx.textAlign = align === 'center' ? 'center' : 'left';
+                if (title) { ctx.font =
+                        `700 ${titleSize}px "Roboto Condensed", sans-serif`;
+                    ctx.fillStyle = titleColor;
+                    ctx.fillText(String(title).toUpperCase(), tx, cursorY + titleSize * 0.85);
+                    cursorY += titleH + gap; }
+                ctx.font = valueFont || `700 ${valueSize}px "Roboto Condensed", sans-serif`;
+                ctx.fillStyle = valueColor;
+                let text = value === undefined || value === null || value === '' ? '' : String(value);
+                if (truncate) text = truncateToWidth(ctx, text, innerW);
+                ctx.fillText(text, tx, cursorY + valueSize * 0.85);
+            };
+            const SCALE = 4;
+            const W = Math.round(6 * 96 * SCALE),
+                H = Math.round(4 * 96 * SCALE);
+            const canvas = document.createElement('canvas');
+            canvas.width = W;
+            canvas.height = H;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, W, H);
+            ctx.strokeStyle = '#dddddd';
+            ctx.lineWidth = 1 * SCALE;
+            ctx.strokeRect(0.5 * SCALE, 0.5 * SCALE, W - SCALE, H - SCALE);
+            const PAD = 0.25 * 96 * SCALE;
+            const cX = PAD,
+                cY = PAD,
+                cW = W - 2 * PAD,
+                cH = H - 2 * PAD;
+            const colImgW = cW * 0.25,
+                colDataW = cW * 0.60,
+                colBarW = cW * 0.15;
+            const colImgX = cX,
+                colDataX = cX + colImgW,
+                colBarX = colDataX + colDataW;
+            const BORDER = 2 * SCALE;
+            if (processImgSrc) {
+                try { const img = new Image();
+                    img.crossOrigin = 'anonymous'; await new Promise(r => { img.onload = r;
+                        img.onerror = r;
+                        img.src = processImgSrc; });
+                    ctx.drawImage(img, colImgX, cY, colImgW - 5 * SCALE, cH); } catch (e) {}
+            }
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = BORDER;
+            [colDataX, colBarX].forEach(sx => { ctx.beginPath();
+                ctx.moveTo(sx, cY);
+                ctx.lineTo(sx, cY + cH);
+                ctx.stroke(); });
+            const rowPx = [0.15, 0.15, 0.24, 0.24, 0.11].map(pct => cH * pct);
+            rowPx.push(cH - rowPx.reduce((a, b) => a + b, 0));
+            let rowY = cY;
+            const h1 = rowPx[0],
+                w1A = colDataW * 0.65,
+                w1B = colDataW * 0.35;
+            drawLabelCell(ctx, { x: colDataX, y: rowY, w: w1A, h: h1, title: 'MODELO', value: p.codigo || 'S/N',
+                titleSize: 10 * SCALE, valueFont: `700 ${32 * SCALE}px "Oswald", sans-serif`,
+                valueSize: 32 * SCALE });
+            drawLabelCell(ctx, { x: colDataX + w1A, y: rowY, w: w1B, h: h1, title: 'TOTAL ORDEN', value: p
+                    .totalPedido || 0, titleSize: 10 * SCALE, valueFont: `700 ${20 * SCALE}px "Oswald", sans-serif`,
+                valueSize: 20 * SCALE });
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = BORDER;
+            ctx.beginPath();
+            ctx.moveTo(colDataX + w1A, rowY);
+            ctx.lineTo(colDataX + w1A, rowY + h1);
+            ctx.stroke();
+            rowY += h1;
+            ctx.beginPath();
+            ctx.moveTo(colDataX, rowY);
+            ctx.lineTo(colDataX + colDataW, rowY);
+            ctx.stroke();
+            const h2 = rowPx[1],
+                w2A = colDataW * 0.27,
+                w2B = colDataW * 0.27,
+                w2C = colDataW * 0.46;
+            drawLabelCell(ctx, { x: colDataX, y: rowY, w: w2A, h: h2, title: 'CLIENTE', value: p.cliente || '---',
+                titleSize: 10 * SCALE, valueSize: 14 * SCALE, truncate: true });
+            drawLabelCell(ctx, { x: colDataX + w2A, y: rowY, w: w2B, h: h2, title: 'PARTIDA', value: p.partida ||
+                    '-', titleSize: 10 * SCALE, valueSize: 14 * SCALE, truncate: true });
+            drawLabelCell(ctx, { x: colDataX + w2A + w2B, y: rowY, w: w2C, h: h2, title: 'PIEZA', value: p
+                    .piezaNombre || 'ESTANDAR', titleSize: 10 * SCALE, valueSize: 14 * SCALE, truncate: true });
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = BORDER;
+            [w2A, w2A + w2B].forEach(off => { ctx.beginPath();
+                ctx.moveTo(colDataX + off, rowY);
+                ctx.lineTo(colDataX + off, rowY + h2);
+                ctx.stroke(); });
+            rowY += h2;
+            ctx.beginPath();
+            ctx.moveTo(colDataX, rowY);
+            ctx.lineTo(colDataX + colDataW, rowY);
+            ctx.stroke();
+            const h3 = rowPx[2],
+                textoCentral = p.color || 'N/A';
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(colDataX, rowY, colDataW, h3);
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            let fs = (textoCentral.length <= 6 ? 64 : textoCentral.length <= 10 ? 52 : 38) * SCALE;
+            ctx.font = `700 ${fs}px "Oswald", sans-serif`;
+            while (ctx.measureText(textoCentral).width > (colDataW - 24 * SCALE) && fs > 14 * SCALE) { fs -= 2 *
+                SCALE;
+                ctx.font = `700 ${fs}px "Oswald", sans-serif`; }
+            ctx.fillText(textoCentral, colDataX + colDataW / 2, rowY + h3 / 2 + fs * 0.03);
+            rowY += h3;
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = BORDER;
+            ctx.beginPath();
+            ctx.moveTo(colDataX, rowY);
+            ctx.lineTo(colDataX + colDataW, rowY);
+            ctx.stroke();
+            const h4 = rowPx[3],
+                w4A = colDataW * 0.33,
+                w4B = colDataW * 0.34,
+                w4C = colDataW * 0.33;
+            ctx.fillStyle = '#eeeeee';
+            ctx.fillRect(colDataX + w4A, rowY, w4B, h4);
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(colDataX + w4A + w4B, rowY, w4C, h4);
+            drawLabelCell(ctx, { x: colDataX, y: rowY, w: w4A, h: h4, title: 'PAQUETE', value: p.displayPackageId,
+                titleSize: 10 * SCALE, valueFont: `700 ${36 * SCALE}px "Oswald", sans-serif`, valueSize: 36 *
+                SCALE, align: 'center' });
+            drawLabelCell(ctx, { x: colDataX + w4A, y: rowY, w: w4B, h: h4, title: 'CANTIDAD', value: p
+                    .piecesInPackage, titleSize: 10 * SCALE, valueFont: `700 ${36 * SCALE}px "Oswald", sans-serif`,
+                valueSize: 36 * SCALE, align: 'center' });
+            drawLabelCell(ctx, { x: colDataX + w4A + w4B, y: rowY, w: w4C, h: h4, title: 'MAQUINA', value: p
+                    .maquina || '0', titleColor: '#cccccc', valueColor: '#ffffff', titleSize: 10 * SCALE,
+                valueFont: `700 ${48 * SCALE}px "Oswald", sans-serif`, valueSize: 48 * SCALE,
+            align: 'center' });
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = BORDER;
+            [w4A, w4A + w4B].forEach(off => { ctx.beginPath();
+                ctx.moveTo(colDataX + off, rowY);
+                ctx.lineTo(colDataX + off, rowY + h4);
+                ctx.stroke(); });
+            rowY += h4;
+            ctx.beginPath();
+            ctx.moveTo(colDataX, rowY);
+            ctx.lineTo(colDataX + colDataW, rowY);
+            ctx.stroke();
+            const h5 = rowPx[4],
+                w5 = colDataW / 4;
+            const pzas1hr = parseFloat(p.tiempo) > 0 ? Math.round(60 / parseFloat(p.tiempo)) : '-';
+            const pzasShift = parseFloat(p.tiempo) > 0 ? Math.round((SHIFT_HOURS * 60) / parseFloat(p
+            .tiempo)) : '-';
+            const cells = [{ title: 'TALLA', value: p.talla || 'U', font: `700 ${16 * SCALE}px "Oswald", sans-serif`,
+                    size: 16 * SCALE }, { title: 'PESO(g)', value: p.peso || '-', font: `700 ${14 * SCALE}px "Roboto Condensed", sans-serif`,
+                    size: 14 * SCALE }, { title: 'PZS/HR', value: pzas1hr, font: `700 ${16 * SCALE}px "Roboto Condensed", sans-serif`,
+                    size: 16 * SCALE }, { title: `${SHIFT_HOURS} HRS`, value: pzasShift, font: `700 ${16 * SCALE}px "Roboto Condensed", sans-serif`,
+                    size: 16 * SCALE }
+            ];
+            cells.forEach((c, i) => drawLabelCell(ctx, { x: colDataX + w5 * i, y: rowY, w: w5, h: h5, title: c
+                    .title, value: c.value, titleSize: 9 * SCALE, valueFont: c.font, valueSize: c.size,
+                truncate: true }));
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = BORDER;
+            [1, 2, 3].forEach(i => { ctx.beginPath();
+                ctx.moveTo(colDataX + w5 * i, rowY);
+                ctx.lineTo(colDataX + w5 * i, rowY + h5);
+                ctx.stroke(); });
+            rowY += h5;
+            const h6 = rowPx[5],
+                fechaEntrega = p.fechaEntrega || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                .toLocaleDateString('es-MX');
+            ctx.fillStyle = '#000000';
+            ctx.font = `700 ${9 * SCALE}px "Roboto Condensed", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`ENTREGA: ${fechaEntrega}`, colDataX + colDataW / 2, rowY + h6 / 2);
+            let barcodeCanvas = null;
+            try {
+                if (typeof bwipjs === 'undefined') throw new Error('bwipjs no disponible');
+                barcodeCanvas = document.createElement('canvas');
+                bwipjs.toCanvas(barcodeCanvas, { bcid: 'pdf417', text: p.packageCode || '000000', scale: 3,
+                    height: 10, includetext: false });
+                const drawW = cH * 0.72,
+                    drawH = Math.min(colBarW * 0.8, barcodeCanvas.height * (drawW / barcodeCanvas.width));
+                ctx.save();
+                ctx.translate(colBarX + colBarW / 2, cY + cH / 2);
+                ctx.rotate(Math.PI / 2);
+                ctx.drawImage(barcodeCanvas, -drawW / 2, -drawH / 2, drawW, drawH);
+                ctx.restore();
+            } catch (e) {
+                ctx.save();
+                ctx.translate(colBarX + colBarW / 2, cY + cH / 2);
+                ctx.rotate(Math.PI / 2);
+                ctx.fillStyle = '#000';
+                ctx.font = `700 ${10 * SCALE}px "Roboto Condensed", sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(String(p.packageCode || 'SIN CÓDIGO'), 0, 0);
+                ctx.restore();
+                console.warn('[MAES] No se pudo generar el código de barras:', e.message);
+            } finally { if (barcodeCanvas) { barcodeCanvas.width = 0;
+                    barcodeCanvas.height = 0; } }
+            return canvas;
+        };
+
+        // ============ SPINNER ============
+        const Spinner = ({ size = 5 }) => (
+            <div className={`spin w-${size} h-${size} border-2 border-slate-300 border-t-slate-600 rounded-full`}></div>
+        );
+
+        // ============ TARJETA DE MÁQUINA (ACORDEÓN) ============
+        const MaquinaCard = React.memo(({ maquina, packages, onPrintMaquina, onPrintPaquete }) => {
+            const [expanded, setExpanded] = useState(false);
+            return (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-4 transition-all hover:shadow-md">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 border-b cursor-pointer" onClick={() => setExpanded(!expanded)}>
+                        <div className="flex items-center gap-4">
+                            <div className="bg-indigo-100 text-indigo-700 w-12 h-12 rounded-lg flex flex-col items-center justify-center border border-indigo-200">
+                                <span className="text-[10px] font-bold leading-none">MAQ</span>
+                                <span className="text-lg font-black leading-none">{maquina.maquina}</span>
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-800 text-lg">Talla: <span className="text-indigo-600 font-black">{maquina.talla}</span></h3>
+                                <p className="text-xs text-slate-500 font-medium">{packages.length} paquetes registrados</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button onClick={(e) => { e.stopPropagation();
+                                    onPrintMaquina(packages); }} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition transform active:scale-95">
+                                🖨️ Imprimir Máquina
+                            </button>
+                            <span className={`inline-block transition-transform duration-300 text-slate-400 ${expanded ? 'rotate-180' : ''}`}>▼</span>
+                        </div>
+                    </div>
+                    <div className={`accordion-content ${expanded ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div className="p-4 bg-white">
+                            <div className="text-xs font-bold text-slate-400 uppercase mb-3">Reimpresión Individual (Por Paquete)</div>
+                            <div className="flex flex-wrap gap-2">
+                                {packages.map(p => (
+                                    <button key={p.packageIndex} onClick={() => onPrintPaquete(p)} className="w-14 h-14 bg-slate-50 border border-slate-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 flex flex-col items-center justify-center group transition" title={`Paquete ${p.displayPackageId} | Imprimir`}>
+                                        <span className="text-lg group-hover:scale-110 transition">🖨️</span>
+                                        <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-700">{p.displayPackageId.split('/')[0]}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        });
+
+        // ============ NOTIFICACIONES TOAST ============
+        const ToastStack = ({ toasts, onDismiss }) => (
+            <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+                {toasts.map(t => (
+                    <div key={t.id} className={`pointer-events-auto rounded-xl shadow-lg px-4 py-3 text-sm font-semibold text-white flex items-start gap-2 ${t.type === 'error' ? 'bg-red-600' : t.type === 'warning' ? 'bg-amber-500' : 'bg-slate-800'}`}>
+                        <span className="mt-0.5 flex-shrink-0">{t.type === 'error' ? '⚠️' : t.type === 'warning' ? '⚠️' : 'ℹ️'}</span>
+                        <span className="flex-grow leading-snug">{t.message}</span>
+                        <button onClick={() => onDismiss(t.id)} className="opacity-70 hover:opacity-100 flex-shrink-0 font-bold">✕</button>
+                    </div>
+                ))}
+            </div>
+        );
+
+        // ============ ERROR BOUNDARY ============
+        class ErrorBoundary extends React.Component {
+            constructor(props) { super(props);
+                this.state = { hasError: false, error: null }; }
+            static getDerivedStateFromError(error) { return { hasError: true, error }; }
+            componentDidCatch(error, info) { console.error('[MAES] Error de renderizado:', error, info); }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="flex items-center justify-center min-h-screen bg-slate-900 p-6">
+                            <div className="bg-white rounded-2xl p-8 max-w-md text-center shadow-2xl">
+                                <div className="text-4xl mb-3">⚠️</div>
+                                <h1 className="text-lg font-black text-slate-800 mb-2">Ocurrió un error inesperado</h1>
+                                <p className="text-sm text-slate-500 mb-6">La aplicación encontró un problema y no puede continuar. Recarga la página para seguir trabajando; no se perdió ninguna información en la base de datos.</p>
+                                <button onClick={() => window.location.reload()} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-xl transition">Recargar aplicación</button>
+                            </div>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
+        // ============ APLICACIÓN PRINCIPAL ============
+        const App = () => {
+            const [orders, setOrders] = useState([]);
+            const [repoSources, setRepoSources] = useState([]);
+            const [ordersLoaded, setOrdersLoaded] = useState(false);
+            const [ordersError, setOrdersError] = useState(null);
+            const [isOnline, setIsOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
+            const [toasts, setToasts] = useState([]);
+            const [generatedPartidas, setGeneratedPartidas] = useState([]);
+            const [activeTab, setActiveTab] = useState('produccion');
+            const cancelGenerationRef = useRef(false);
+
+            const pushToast = useCallback((message, type = 'info', ttl = 5000) => {
+                const id = `${Date.now()}-${Math.random()}`;
+                setToasts(t => [...t, { id, message, type }]);
+                if (ttl) setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), ttl);
+            }, []);
+            const dismissToast = useCallback((id) => setToasts(t => t.filter(x => x.id !== id)), []);
+
+            const [selectedPartidaId, setSelectedPartidaId] = useState(null);
+            const [printModal, setPrintModal] = useState({ isOpen: false, queue: [], title: '' });
+            const [imageMode, setImageMode] = useState('threshold');
+            const [previewImgUrl, setPreviewImgUrl] = useState(null);
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [progress, setProgress] = useState({ current: 0, total: 0 });
+
+            // Conexión
+            useEffect(() => {
+                const goOnline = () => { setIsOnline(true);
+                    pushToast('Conexión restablecida.', 'info', 3000); };
+                const goOffline = () => { setIsOnline(false);
+                    pushToast('Sin conexión a internet. Los datos mostrados pueden no ser los más recientes.',
+                        'warning', 6000); };
+                window.addEventListener('online', goOnline);
+                window.addEventListener('offline', goOffline);
+                return () => { window.removeEventListener('online', goOnline);
+                    window.removeEventListener('offline', goOffline); };
+            }, [pushToast]);
+
+            useEffect(() => {
+                if (firebaseInitError) {
+                    pushToast('No se pudo conectar con la base de datos. Verifica tu conexión e inténtalo más tarde.',
+                        'error', 8000);
+                    setOrdersLoaded(true);
+                }
+            }, [pushToast]);
+
+            // Cargar Configuración (repoSources + partidasGeneradas)
+            useEffect(() => {
+                if (!db) return;
+                const unsubscribe = db.collection('settings').doc('config').onSnapshot(
+                    doc => {
+                        if (doc.exists) {
+                            setRepoSources(doc.data().repoUrls || []);
+                            setGeneratedPartidas(doc.data().partidasGeneradas || []);
+                        } else {
+                            setRepoSources([]);
+                            setGeneratedPartidas([]);
+                        }
+                    },
+                    err => { console.error('[MAES] Error cargando configuración:', err);
+                        pushToast('No se pudo cargar la configuración de imágenes.', 'warning'); }
+                );
+                return () => unsubscribe();
+            }, [pushToast]);
+
+            // Cargar Órdenes
+            useEffect(() => {
+                if (!db) return;
+                const unsubscribe = db.collection('orders').onSnapshot(
+                    snapshot => {
+                        const docs = snapshot.docs.map(doc => doc.data()).filter(o => o.status !==
+                            'ARCHIVADO');
+                        setOrders(docs);
+                        setOrdersLoaded(true);
+                        setOrdersError(null);
+                    },
+                    err => {
+                        console.error('[MAES] Error cargando órdenes:', err);
+                        setOrdersError(err);
+                        setOrdersLoaded(true);
+                        pushToast('No se pudieron sincronizar las órdenes de producción. Reintentando…', 'error',
+                            6000);
+                    }
+                );
+                return () => unsubscribe();
+            }, [pushToast]);
+
+            // Aplanar y Agrupar por PARTIDA
+            const { partidasAgrupadas, skippedCount } = useMemo(() => {
+                const mapPartidas = {};
+                let skipped = 0;
+                let packageIndexSeq = 0;
+                orders.forEach(o => {
+                    if (!o || !Array.isArray(o.progreso) || o.progreso.length === 0) return;
+                    o.progreso.forEach((p) => {
+                        try {
+                            if (!p || typeof p !== 'object') { skipped++; return; }
+                            const codigo = p.codigo || o.codigo;
+                            if (!codigo || p.paqueteNum === undefined || p.paqueteNum === null) { skipped++; return; }
+                            const partidaName = p.partida || o.partida || 'SIN_PARTIDA';
+                            const pieza = p.piezaNombre || o.piezaNombre || 'ESTANDAR';
+                            
+                            let resolvedTalla = p.talla,
+                                resolvedPeso = p.peso,
+                                resolvedTiempo = p.tiempo;
+                                
+                            if (!resolvedTalla && Array.isArray(o.subPiecesData)) {
+                                const sps = o.subPiecesData.filter(s => s && s.pieza === pieza);
+                                if (sps.length > 0) { 
+                                    resolvedTalla = sps[0].talla || 'U';
+                                    resolvedPeso = sps[0].peso;
+                                    resolvedTiempo = sps[0].tiempo; 
+                                }
+                            }
+                            if (!resolvedTalla) resolvedTalla = o.talla || 'U';
+
+                            // --- CORRECCIÓN: Cálculo dinámico de Total Orden si falta en la raíz ---
+                            let resolvedTotalPedido = o.totalPedido;
+                            if (!resolvedTotalPedido && Array.isArray(o.subPiecesData)) {
+                                resolvedTotalPedido = o.subPiecesData.reduce((acc, curr) => acc + (Number(curr.totalPedido) || 0), 0);
+                            }
+
+                            const pkg = {
+                                ...o,
+                                ...p,
+                                piezaNombre: pieza,
+                                color: p.color || o.color || 'N/A',
+                                codigo,
+                                maquina: p.maquina || o.maquina || '0',
+                                talla: resolvedTalla,
+                                peso: p.peso || resolvedPeso || '-',
+                                tiempo: p.tiempo || resolvedTiempo || 0,
+                                // --- CORRECCIÓN: Mapeo exacto para el diseño de la etiqueta ---
+                                totalPedido: resolvedTotalPedido || 0,
+                                piecesInPackage: p.cantidad || 0,
+                                // --------------------------------------------------------------
+                                displayPackageId: `${p.paqueteNum}/${p.paquetesDePieza || '?'}`,
+                                packageCode: p.codigoUnico || '',
+                                packageIndex: `${o.id || o.codigo || 'ord'}-${packageIndexSeq++}`,
+                            };
+                            
+                            if (!mapPartidas[partidaName]) {
+                                mapPartidas[partidaName] = {
+                                    id: partidaName,
+                                    modelos: new Set(),
+                                    colores: new Set(),
+                                    maquinasMap: {},
+                                    totalPackages: 0
+                                };
+                            }
+                            const gp = mapPartidas[partidaName];
+                            gp.modelos.add(pkg.codigo);
+                            gp.colores.add(pkg.color);
+                            gp.totalPackages++;
+                            const maqKey = `${pkg.maquina}-${pkg.talla}`;
+                            if (!gp.maquinasMap[maqKey]) {
+                                gp.maquinasMap[maqKey] = { maquina: pkg.maquina, talla: pkg.talla, packages: [] };
+                            }
+                            gp.maquinasMap[maqKey].packages.push(pkg);
+                        } catch (e) { skipped++;
+                            console.warn('[MAES] Paquete omitido por error al procesarlo:', e); }
+                    });
+                });
+                const list = Object.values(mapPartidas).map(p => ({
+                    ...p,
+                    modelosArr: Array.from(p.modelos).join(', '),
+                    coloresArr: Array.from(p.colores).join(', '),
+                    maquinasList: Object.values(p.maquinasMap).sort((a, b) => {
+                        const mCmp = String(a.maquina).localeCompare(String(b.maquina));
+                        return mCmp !== 0 ? mCmp : String(a.talla).localeCompare(String(b.talla));
+                    })
+                })).sort((a, b) => a.id.localeCompare(b.id));
+                return { partidasAgrupadas: list, skippedCount: skipped };
+            }, [orders]);
+
+            useEffect(() => {
+                if (skippedCount > 0) pushToast(
+                    `${skippedCount} paquete(s) se omitieron por datos incompletos (sin código o número de paquete).`,
+                    'warning', 7000);
+            }, [skippedCount, pushToast]);
+
+            // Filtrar por pestaña (producción / generadas)
+            const filteredPartidas = useMemo(() => {
+                if (activeTab === 'generadas') return partidasAgrupadas.filter(p => generatedPartidas.includes(p
+                    .id));
+                return partidasAgrupadas.filter(p => !generatedPartidas.includes(p.id));
+            }, [partidasAgrupadas, generatedPartidas, activeTab]);
+
+            // Agrupar por mes
+            const partidasPorMes = useMemo(() => {
+                const map = {};
+                filteredPartidas.forEach(p => {
+                    const info = parsePartidaMes(p.id);
+                    const key = info.key;
+                    if (!map[key]) map[key] = { ...info, partidas: [] };
+                    map[key].partidas.push(p);
+                });
+                // Ordenar por año y mes
+                const sorted = Object.values(map).sort((a, b) => {
+                    if (a.key === 'sin-fecha') return 1;
+                    if (b.key === 'sin-fecha') return -1;
+                    return a.key.localeCompare(b.key);
+                });
+                return sorted;
+            }, [filteredPartidas]);
+
+            const activePartida = useMemo(() => partidasAgrupadas.find(p => p.id === selectedPartidaId), [
+                selectedPartidaId, partidasAgrupadas
+            ]);
+
+            // Toggle partida generada (manual o automático)
+            const toggleGenerada = useCallback(async (partidaId) => {
+                if (!db) return;
+                const newList = generatedPartidas.includes(partidaId) ?
+                    generatedPartidas.filter(id => id !== partidaId) :
+                    [...generatedPartidas, partidaId];
+                try {
+                    await db.collection('settings').doc('config').set({ partidasGeneradas: newList }, { merge: true });
+                    setGeneratedPartidas(newList);
+                    pushToast(generatedPartidas.includes(partidaId) ?
+                        'Partida movida a producción.' :
+                        'Partida marcada como generada.', 'info', 3000);
+                } catch (e) {
+                    pushToast('No se pudo actualizar el estado de la partida.', 'error');
+                }
+            }, [generatedPartidas, pushToast]);
+
+            // Modal de impresión
+            const openPrintModal = useCallback((packagesToPrint, title) => {
+                if (!packagesToPrint || packagesToPrint.length === 0) {
+                    pushToast('No hay paquetes para imprimir en esta selección.', 'warning');
+                    return;
+                }
+                setPrintModal({ isOpen: true, queue: packagesToPrint, title });
+                if (packagesToPrint.length > LARGE_BATCH_WARNING) {
+                    pushToast(
+                        `Vas a generar ${packagesToPrint.length} etiquetas en un solo PDF. En equipos lentos esto puede tardar varios minutos; considera imprimir por máquina si es posible.`,
+                        'warning', 8000);
+                }
+            }, [pushToast]);
+
+            const closePrintModal = useCallback(() => {
+                if (isGenerating) return;
+                setPrintModal({ isOpen: false, queue: [], title: '' });
+                setPreviewImgUrl(null);
+            }, [isGenerating]);
+
+            useEffect(() => {
+                const handler = (e) => { e.preventDefault();
+                    e.returnValue = ''; };
+                if (isGenerating) window.addEventListener('beforeunload', handler);
+                return () => window.removeEventListener('beforeunload', handler);
+            }, [isGenerating]);
+
+            // Previsualización de la primera etiqueta
+            useEffect(() => {
+                let cancelled = false;
+                if (printModal.isOpen && printModal.queue.length > 0) {
+                    const sampleModel = printModal.queue[0].codigo;
+                    (async () => {
+                        const rawUrl = await fetchImageForModel(sampleModel, repoSources);
+                        const processed = await processImageForPrint(rawUrl, imageMode, PRINT_IMG_BOX_W,
+                            PRINT_IMG_BOX_H, 3);
+                        if (!cancelled) setPreviewImgUrl(processed);
+                    })();
+                }
+                return () => { cancelled = true; };
+            }, [printModal.isOpen, printModal.queue, imageMode, repoSources]);
+
+            const yieldToUI = () => new Promise(r => setTimeout(r, 0));
+
+            const handleCancelGeneration = () => { cancelGenerationRef.current = true; };
+
+            const handleGeneratePDF = async () => {
+                if (printModal.queue.length === 0) return;
+                if (typeof window.jspdf === 'undefined') {
+                    pushToast('El generador de PDF no está disponible. Verifica tu conexión e inténtalo de nuevo.',
+                        'error');
+                    return;
+                }
+                cancelGenerationRef.current = false;
+                setIsGenerating(true);
+                const pkgs = printModal.queue;
+                setProgress({ current: 0, total: pkgs.length });
+                try {
+                    await Promise.all([
+                        document.fonts.load('700 20px "Oswald"'),
+                        document.fonts.load('700 48px "Oswald"'),
+                        document.fonts.load('700 20px "Roboto Condensed"'),
+                        document.fonts.ready
+                    ]).catch(() => {});
+                    const { jsPDF } = window.jspdf;
+                    let pdf = null;
+                    let failedCount = 0;
+                    for (let i = 0; i < pkgs.length; i++) {
+                        if (cancelGenerationRef.current) {
+                            pushToast(`Generación cancelada. Se procesaron ${i} de ${pkgs.length} etiquetas.`,
+                                'warning');
+                            break;
+                        }
+                        const pkg = pkgs[i];
+                        try {
+                            const rawUrl = await fetchImageForModel(pkg.codigo, repoSources);
+                            const printImgSrc = await processImageForPrint(rawUrl, imageMode, PRINT_IMG_BOX_W,
+                                PRINT_IMG_BOX_H, 4);
+                            const canvas = await renderLabelToCanvas(pkg, printImgSrc);
+                            const imgData = canvas.toDataURL('image/jpeg', 0.92);
+                            canvas.width = 0;
+                            canvas.height = 0;
+                            if (!pdf) pdf = new jsPDF({ unit: 'in', format: [6, 4], orientation: 'landscape' });
+                            else pdf.addPage([6, 4], 'landscape');
+                            pdf.addImage(imgData, 'JPEG', 0, 0, 6, 4);
+                        } catch (pkgErr) { failedCount++;
+                            console.error('[MAES] Falló la etiqueta de un paquete, se omite y se continúa:', pkgErr); }
+                        setProgress({ current: i + 1, total: pkgs.length });
+                        await yieldToUI();
+                    }
+                    if (!cancelGenerationRef.current) {
+                        if (!pdf) { pushToast('No se generó ninguna etiqueta: todas fallaron.', 'error'); } else {
+                            const safeTitle = printModal.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                            pdf.save(`Etiquetas_${safeTitle}_${pkgs.length}pqt.pdf`);
+                            if (failedCount > 0) pushToast(
+                                `PDF generado, pero ${failedCount} etiqueta(s) fallaron y se omitieron.`,
+                                'warning', 7000);
+                            else pushToast('PDF generado correctamente.', 'info', 3000);
+                            // Si se imprimió la partida completa, marcarla como generada automáticamente
+                            if (activePartida && printModal.queue.length === activePartida.totalPackages &&
+                                !generatedPartidas.includes(activePartida.id)) {
+                                toggleGenerada(activePartida.id);
+                            }
+                            closePrintModal();
+                        }
+                    }
+                } catch (err) {
+                    console.error('[MAES] Error generando PDF:', err);
+                    pushToast('Error al generar el PDF: ' + err.message, 'error', 8000);
+                } finally { setIsGenerating(false);
+                    setProgress({ current: 0, total: 0 });
+                    cancelGenerationRef.current = false; }
+            };
+
+            // ============ RENDER HOME (PESTAÑAS Y MESES) ============
+            if (!selectedPartidaId) {
+                const mesesOrdenados = partidasPorMes;
+                const totalPartidasMostradas = filteredPartidas.length;
+
+                return (
+                    <div className="flex flex-col min-h-screen">
+                        <ToastStack toasts={toasts} onDismiss={dismissToast} />
+                        <header className="bg-slate-900 text-white p-5 shadow-lg flex items-center justify-between border-b-4 border-yellow-500">
+                            <div>
+                                <h1 className="text-2xl text-yellow-400 tracking-wider flex items-center gap-3" style={{ fontFamily: "'Black Ops One', system-ui" }}>
+                                    📦 MAES
+                                </h1>
+                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Panel de Producción General</p>
+                            </div>
+                            {!isOnline && (
+                                <div className="flex items-center gap-2 bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-2 rounded-lg text-xs font-bold">
+                                    📵 SIN CONEXIÓN
+                                </div>
+                            )}
+                        </header>
+
+                        {ordersError && (
+                            <div className="bg-red-50 border-b border-red-200 text-red-700 text-sm font-semibold px-6 py-3 flex items-center gap-2">
+                                ⚠️ No se pudieron sincronizar los datos de producción. Mostrando la última información disponible.
+                            </div>
+                        )}
+
+                        {/* Pestañas */}
+                        <div className="bg-white border-b border-slate-200 px-6 pt-4 flex gap-0">
+                            <button onClick={() => setActiveTab('produccion')} className={`px-6 py-3 text-sm font-bold rounded-t-lg transition flex items-center gap-2 ${activeTab === 'produccion' ? 'bg-slate-100 text-indigo-700 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>
+                                🏭 Producción
+                            </button>
+                            <button onClick={() => setActiveTab('generadas')} className={`px-6 py-3 text-sm font-bold rounded-t-lg transition flex items-center gap-2 ${activeTab === 'generadas' ? 'bg-slate-100 text-emerald-700 border-b-2 border-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}>
+                                ✅ Generadas {generatedPartidas.length > 0 && <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-xs">{generatedPartidas.length}</span>}
+                            </button>
+                        </div>
+
+                        <main className="flex-grow p-6 lg:p-10 max-w-7xl mx-auto w-full">
+                            <h2 className="text-lg font-bold text-slate-700 mb-6 flex items-center gap-2">📑 {activeTab === 'produccion' ? 'PARTIDAS EN PRODUCCIÓN' : 'PARTIDAS GENERADAS'} ({totalPartidasMostradas})</h2>
+
+                            {!ordersLoaded ? (
+                                <div className="text-center py-20 text-slate-400 flex flex-col items-center">
+                                    <Spinner size={8} />
+                                    <p className="mt-4">Cargando partidas…</p>
+                                </div>
+                            ) : mesesOrdenados.length === 0 ? (
+                                <div className="text-center py-20 text-slate-400 flex flex-col items-center">
+                                    <span className="text-5xl mb-4 opacity-50">📭</span>
+                                    <p>{activeTab === 'produccion' ? 'No hay partidas activas en producción.' : 'No hay partidas generadas todavía.'}</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {mesesOrdenados.map(mesInfo => (
+                                        <MesAccordion key={mesInfo.key} mesInfo={mesInfo} onSelectPartida={setSelectedPartidaId} />
+                                    ))}
+                                </div>
+                            )}
+                        </main>
+                    </div>
+                );
+            }
+
+            // ============ RENDER DETALLE PARTIDA ============
+            const isPartidaGenerada = generatedPartidas.includes(activePartida.id);
+            return (
+                <div className="flex flex-col min-h-screen bg-slate-100">
+                    <ToastStack toasts={toasts} onDismiss={dismissToast} />
+                    <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-20">
+                        <div className="flex items-center gap-4">
+                            <button onClick={() => setSelectedPartidaId(null)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 text-slate-600 transition">
+                                ←
+                            </button>
+                            <div>
+                                <p className="text-xs text-indigo-500 font-bold uppercase tracking-wider">Visualizando Partida</p>
+                                <h2 className="text-2xl font-black text-slate-800 leading-tight flex items-center gap-2">
+                                    {activePartida.id}
+                                    {isPartidaGenerada && <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">GENERADA</span>}
+                                </h2>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => toggleGenerada(activePartida.id)} className={`px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition ${isPartidaGenerada ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'}`}>
+                                {isPartidaGenerada ? '↩️ Desmarcar' : '✅ Marcar como generada'}
+                            </button>
+                            <button onClick={() => { const allPkgs = activePartida.maquinasList.flatMap(m => m.packages);
+                                    openPrintModal(allPkgs, `PARTIDA_${activePartida.id}`); }} className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg transform transition hover:-translate-y-0.5 active:scale-95">
+                                🖨️ IMPRIMIR TODA LA PARTIDA
+                            </button>
+                        </div>
+                    </header>
+
+                    <main className="flex-grow p-6 lg:p-10 max-w-4xl mx-auto w-full">
+                        <div className="mb-6 flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-slate-700 flex items-center gap-2">🖥️ Máquinas Asignadas</h3>
+                            <span className="text-sm font-bold text-slate-500 bg-white px-3 py-1 rounded-full shadow-sm border border-slate-200">{activePartida.totalPackages} paquetes en total</span>
+                        </div>
+                        {activePartida.maquinasList.map(item => (
+                            <MaquinaCard key={`${item.maquina}-${item.talla}`} maquina={item} packages={item.packages}
+                                onPrintMaquina={(pkgs) => openPrintModal(pkgs, `MAQUINA_${item.maquina}_TALLA_${item.talla}`)}
+                                onPrintPaquete={(pkg) => openPrintModal([pkg], `PAQUETE_${pkg.displayPackageId.replace('/','-')}`)} />
+                        ))}
+                    </main>
+
+                    {/* ============ MODAL DE IMPRESIÓN ============ */}
+                    {printModal.isOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+                            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={closePrintModal}></div>
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl flex flex-col md:flex-row overflow-hidden relative z-10 max-h-[95vh]">
+                                <div className="w-full md:w-1/3 bg-slate-50 border-r border-slate-200 p-6 flex flex-col overflow-y-auto">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="text-xl font-black text-slate-800">Ajustes de Impresión</h3>
+                                        <button onClick={closePrintModal} disabled={isGenerating} className="p-2 text-slate-400 hover:text-red-500 transition disabled:opacity-50 font-bold text-xl">✕</button>
+                                    </div>
+                                    <div className="mb-6 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Cola de impresión</div>
+                                        <div className="text-lg font-bold text-indigo-700 truncate">{printModal.title.replace(/_/g, ' ')}</div>
+                                        <div className="text-sm font-bold text-slate-600 mt-1">{printModal.queue.length} Etiquetas a generar</div>
+                                    </div>
+                                    <div className="flex-grow">
+                                        <div className="text-xs font-bold text-slate-800 uppercase tracking-wide mb-4">Modo de transferencia térmica</div>
+                                        <div className="space-y-3">
+                                            <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition ${imageMode === 'color' ? 'bg-yellow-50 border-yellow-500' : 'bg-white hover:bg-slate-50 border-slate-200'}`}>
+                                                <input type="radio" name="imgMode" value="color" checked={imageMode === 'color'} onChange={() => setImageMode('color')} disabled={isGenerating} className="mt-1 w-4 h-4 text-yellow-600" />
+                                                <div><div className="font-bold text-sm text-slate-800">Color Original</div><div className="text-xs text-slate-500 mt-1 leading-snug">Imagen sin procesar. Solo usar si la impresora soporta gradientes perfectos.</div></div>
+                                            </label>
+                                            <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition ${imageMode === 'grayscale' ? 'bg-yellow-50 border-yellow-500' : 'bg-white hover:bg-slate-50 border-slate-200'}`}>
+                                                <input type="radio" name="imgMode" value="grayscale" checked={imageMode === 'grayscale'} onChange={() => setImageMode('grayscale')} disabled={isGenerating} className="mt-1 w-4 h-4 text-yellow-600" />
+                                                <div><div className="font-bold text-sm text-slate-800">Escala de Grises</div><div className="text-xs text-slate-500 mt-1 leading-snug">Convierte la imagen a blanco y negro fotográfico.</div></div>
+                                            </label>
+                                            <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition ${imageMode === 'threshold' ? 'bg-yellow-50 border-yellow-500 shadow-sm' : 'bg-white hover:bg-slate-50 border-slate-200'}`}>
+                                                <input type="radio" name="imgMode" value="threshold" checked={imageMode === 'threshold'} onChange={() => setImageMode('threshold')} disabled={isGenerating} className="mt-1 w-4 h-4 text-yellow-600" />
+                                                <div><div className="font-bold text-sm text-slate-800 flex items-center gap-2">Alto Contraste <span className="bg-green-100 text-green-700 text-[9px] px-1.5 py-0.5 rounded uppercase">Ideal</span></div><div className="text-xs text-slate-500 mt-1 leading-snug">Blanco y negro puro. Evita manchas de gris y hace el corte térmico perfecto.</div></div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div className="mt-8 pt-4 border-t border-slate-200">
+                                        <button onClick={handleGeneratePDF} disabled={isGenerating} className={`w-full py-4 text-white rounded-xl font-bold text-base flex flex-col items-center justify-center shadow-lg transition ${isGenerating ? 'bg-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 hover:-translate-y-1'}`}>
+                                            {isGenerating ? (
+                                                <>
+                                                    <div className="flex items-center gap-2 mb-1"><Spinner size={5} /> Generando Documento...</div>
+                                                    <div className="text-xs text-indigo-100">{progress.current} de {progress.total} procesadas</div>
+                                                </>
+                                            ) : (
+                                                <div className="flex items-center gap-2">📥 DESCARGAR PDF AHORA</div>
+                                            )}
+                                        </button>
+                                        {isGenerating && (
+                                            <>
+                                                <div className="w-full bg-slate-200 h-2 mt-3 rounded-full overflow-hidden">
+                                                    <div className="bg-indigo-500 h-full transition-all duration-300" style={{ width: `${progress.total ? (progress.current / progress.total) * 100 : 0}%` }}></div>
+                                                </div>
+                                                <button onClick={handleCancelGeneration} className="w-full mt-3 py-2 text-sm font-bold text-slate-500 hover:text-red-600 transition">Cancelar generación</button>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="w-full md:w-2/3 bg-slate-200/50 p-6 flex flex-col items-center justify-center relative overflow-y-auto hide-scrollbar">
+                                    <div className="bg-yellow-100 text-yellow-800 border border-yellow-200 px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 shadow-sm mb-6 absolute top-6">
+                                        👁️ Muestra del diseño (Se aplicará a las {printModal.queue.length} etiquetas)
+                                    </div>
+                                    <div className="w-full flex justify-center mt-8">
+                                        <div className="preview-wrapper ring-4 ring-white shadow-2xl">
+                                            <ProductionLabel labelData={printModal.queue[0]} imgSrc={previewImgUrl} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // ============ ACORDEÓN DE MES ============
+        const MesAccordion = React.memo(({ mesInfo, onSelectPartida }) => {
+            const [expanded, setExpanded] = useState(true);
+            const { nombre, año, partidas } = mesInfo;
+            return (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="flex items-center justify-between p-5 bg-gradient-to-r from-slate-50 to-white cursor-pointer hover:bg-slate-50 transition" onClick={() => setExpanded(!expanded)}>
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl">📅</span>
+                            <div>
+                                <h3 className="text-xl font-black text-slate-800">{nombre} {año}</h3>
+                                <p className="text-xs text-slate-500 font-medium">{partidas.length} partida(s)</p>
+                            </div>
+                        </div>
+                        <span className={`inline-block transition-transform duration-300 text-slate-400 text-lg ${expanded ? 'rotate-180' : ''}`}>▼</span>
+                    </div>
+                    <div className={`accordion-content ${expanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {partidas.map(partida => (
+                                <div key={partida.id} onClick={() => onSelectPartida(partida.id)} className="bg-slate-50 rounded-xl border border-slate-200 hover:shadow-lg hover:border-indigo-300 transition-all duration-300 cursor-pointer overflow-hidden group relative transform hover:-translate-y-1">
+                                    <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500 group-hover:bg-yellow-400 transition-colors"></div>
+                                    <div className="px-5 py-4 ml-1">
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">PARTIDA</div>
+                                        <div className="text-xl font-black text-slate-800 tracking-tight leading-none mb-3">{partida.id}</div>
+                                        <div className="space-y-1.5">
+                                            <div><div className="text-[9px] text-slate-500 font-bold uppercase">MODELOS</div><div className="text-xs font-bold text-slate-700 truncate">{partida.modelosArr}</div></div>
+                                            <div><div className="text-[9px] text-slate-500 font-bold uppercase">COLORES</div><div className="text-xs font-bold text-slate-700 truncate">{partida.coloresArr}</div></div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-white px-5 py-3 border-t flex justify-between items-center ml-1">
+                                        <div className="bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full text-xs font-bold text-slate-600">{partida.totalPackages} Paquetes</div>
+                                        <span className="text-indigo-600 group-hover:translate-x-1 transition">→</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        });
+
+        // ============ MONTAR APLICACIÓN ============
+        try {
+            const rootEl = document.getElementById('root');
+            const root = ReactDOM.createRoot(rootEl);
+            root.render(<ErrorBoundary><App /></ErrorBoundary>);
+        } catch (e) {
+            console.error('[MAES] Error fatal al montar la aplicación:', e);
+            if (window.__maesShowFatal) {
+                window.__maesShowFatal('La aplicación no pudo iniciarse (' + e.message + '). Recarga la página.');
+            }
+        }
+    </script>
+</body>
+</html>
