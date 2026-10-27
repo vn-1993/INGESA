@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>INGESA · Control de planta</title>
+<meta name="theme-color" content="#0b0f12">
+<style>
+  :root {
+    --bg: #0c0e11;
+    --surface: #14181d;
+    --surface-2: #1c2128;
+    --fg: #f2f4f6;
+    --muted: #9aa3ad;
+    --faint: #6d7680;
+    --line: rgba(242, 244, 246, 0.12);
+    --line-strong: rgba(242, 244, 246, 0.22);
+    --ok: #5dbe86;
+    --warn: #e0a15a;
+    --bad: #e06a6a;
+    --measure: #7aa2d4;
+    --idle: #9aa3ad;
+    --spin: #7eb8c9;
+    --sans: "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 14px;
+    --shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.45;
+    overflow-x: hidden;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: color-mix(in oklab, var(--bg) 92%, transparent);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(10px);
+  }
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 12px 16px;
+    min-width: 0;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .logo { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: none; }
+  .eyebrow {
+    margin: 0;
+    color: var(--faint);
+    font-size: 0.68rem;
+    font-weight: 650;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  h1 { margin: 1px 0 0; font-size: 1.05rem; font-weight: 600; letter-spacing: -0.02em; }
+  .bar-side { text-align: right; min-width: 0; }
+  .now {
+    margin: 0;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.82rem;
+    letter-spacing: -0.02em;
+  }
+  .sub { margin: 2px 0 0; color: var(--muted); font-size: 0.75rem; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 14px 16px 40px; min-width: 0; }
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  @media (min-width: 860px) { .kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+  .kpi {
+    text-align: left;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: 10px 12px 11px;
+    min-height: 64px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+  }
+  .kpi[data-on="1"] {
+    background: var(--surface-2);
+    border-color: var(--line-strong);
+    box-shadow: inset 0 2px 0 var(--fg);
+  }
+  .kpi-n {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.35rem;
+    font-weight: 560;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+  .kpi-l {
+    color: var(--muted);
+    font-size: 0.68rem;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    margin: 10px 0 0;
+    color: var(--faint);
+    font-size: 0.75rem;
+  }
+  .tools button {
+    color: var(--fg);
+    background: none;
+    border: 0;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding: 6px 0;
+    min-height: 36px;
+  }
+  .banner {
+    margin-top: 10px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: var(--r-md);
+    padding: 10px 12px;
+    font-size: 0.88rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    margin-top: 14px;
+    min-width: 0;
+  }
+  @media (min-width: 1080px) {
+    .layout { grid-template-columns: minmax(0, 1fr) 400px; align-items: start; }
+    .side {
+      position: sticky;
+      top: 76px;
+      max-height: calc(100vh - 92px);
+      overflow: auto;
+    }
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  @media (min-width: 720px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (min-width: 1080px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (min-width: 1320px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .maq {
+    position: relative;
+    text-align: left;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--rail, var(--idle)) 24%, var(--surface)), var(--surface));
+    border: 2px solid color-mix(in oklab, var(--rail, var(--idle)) 78%, white);
+    border-radius: 16px;
+    padding: 18px 14px 14px;
+    min-height: 146px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    overflow: hidden;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+    transition: transform 120ms ease, border-color 120ms ease;
+  }
+  .maq::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 7px;
+    background: var(--rail, var(--idle));
+  }
+  .maq:hover { transform: translateY(-1px); }
+  .maq:active { transform: translateY(0); }
+  .maq[data-on="1"] { outline: 2px solid var(--fg); outline-offset: 3px; }
+  .t-ok { --rail: var(--ok); }
+  .t-warn { --rail: var(--warn); }
+  .t-bad { --rail: var(--bad); }
+  .t-measure { --rail: var(--measure); }
+  .t-idle { --rail: var(--idle); }
+  .t-spin { --rail: var(--spin); }
+  .num {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.7rem;
+    font-weight: 560;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .badge {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--fg);
+    color: var(--bg);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 650;
+  }
+  .status {
+    align-self: flex-start;
+    margin-top: auto;
+    background: var(--rail, var(--muted));
+    color: #12161b;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    padding: 5px 9px;
+  }
+  .muted { color: var(--muted); font-size: 0.78rem; }
+  .clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.25;
+  }
+  .who {
+    color: var(--fg);
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sortbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+  }
+  .sortbar > span {
+    color: var(--faint);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .sorts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sorts button {
+    text-decoration: none;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    padding: 6px 12px;
+    min-height: 40px;
+    background: var(--surface);
+    color: var(--fg);
+  }
+  .sorts button[data-on="1"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  .states { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .state-opt {
+    text-align: left;
+    min-height: 48px;
+    border-radius: 12px;
+    border: 2px solid color-mix(in oklab, var(--rail, var(--line-strong)) 72%, white);
+    background: linear-gradient(180deg, color-mix(in oklab, var(--rail, var(--surface-2)) 28%, var(--surface-2)), var(--surface-2));
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+  .state-opt[data-on="1"] {
+    border-color: var(--rail, var(--fg));
+    background: var(--rail, var(--fg));
+    color: #12161b;
+  }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 14px;
+  }
+  .panel h2 { margin: 0; font-size: 0.95rem; font-weight: 600; letter-spacing: -0.01em; }
+  .tabs {
+    display: flex;
+    gap: 0;
+    margin: 12px -4px 0;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--line);
+  }
+  .tab {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px 10px;
+    min-height: 40px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab[data-on="1"] { color: var(--fg); border-bottom-color: var(--fg); }
+  .tab-n { font-family: var(--mono); font-size: 0.72rem; color: var(--faint); }
+  .tab[data-on="1"] .tab-n { color: var(--muted); }
+  .card {
+    position: relative;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: 12px 12px 12px 14px;
+    margin-top: 10px;
+  }
+  .card::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 12px; bottom: 12px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--rail, var(--faint));
+  }
+  .card.medidas { --rail: var(--measure); }
+  .card.logistica { --rail: var(--warn); }
+  .card.operador { --rail: var(--fg); }
+  .card.maquina, .card.bad { --rail: var(--bad); }
+  .card.calidad { --rail: #2cc9a5; }
+  .card.starred {
+    border-color: color-mix(in oklab, var(--warn) 55%, var(--line));
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--warn) 30%, transparent) inset;
+  }
+  .card.starred .kicker { color: var(--warn); }
+  .motivo-input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface-2);
+    color: var(--fg);
+    font: inherit;
+    font-size: 0.9rem;
+    margin-top: 6px;
+  }
+  .motivo-input:focus { outline: 2px solid var(--fg); outline-offset: 2px; }
+  .kicker {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .card h3 { margin: 3px 0 2px; font-size: 0.95rem; font-weight: 600; letter-spacing: -0.01em; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-top: 8px; }
+  th, td { text-align: left; padding: 6px 8px 6px 0; vertical-align: top; }
+  th {
+    color: var(--faint);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  td { border-top: 1px solid var(--line); }
+  td.num {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-weight: 650;
+    color: var(--bad);
+    letter-spacing: 0;
+  }
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .meta div {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    padding: 8px 10px;
+  }
+  .meta dt {
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .meta dd { margin: 3px 0 0; font-weight: 600; font-size: 0.88rem; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .btn {
+    min-height: 40px;
+    padding: 8px 12px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--fg);
+    background: var(--fg);
+    color: var(--bg);
+    font-size: 0.8rem;
+    font-weight: 650;
+  }
+  .btn.ghost {
+    background: transparent;
+    color: var(--fg);
+    border-color: var(--line-strong);
+  }
+  .btn.danger {
+    background: transparent;
+    color: var(--bad);
+    border-color: color-mix(in oklab, var(--bad) 45%, var(--line));
+  }
+  img.ev {
+    display: block;
+    margin-top: 8px;
+    max-height: 220px;
+    max-width: 100%;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--line);
+    object-fit: contain;
+    background: #000;
+  }
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.62);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 20;
+  }
+  .modal.confirm { z-index: 30; }
+  .dialog { width: min(420px, 100%); box-shadow: var(--shadow); }
+  .dialog.ficha {
+    width: min(560px, 100%);
+    max-height: min(92vh, 860px);
+    overflow: auto;
+    border-radius: 18px;
+  }
+  .dialog.motivos {
+    width: min(820px, 100%);
+    max-height: min(96vh, 940px);
+    overflow: auto;
+    border-radius: 18px;
+  }
+  .dialog.motivos .tabs { margin: 12px -14px 0; padding: 0 14px; }
+  .motivo-add-box {
+    margin-top: 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: var(--surface-2);
+    padding: 10px;
+  }
+  .dialog h2 { margin: 0 0 8px; }
+  .empty { text-align: center; padding: 28px 8px; color: var(--muted); }
+  .empty b { display: block; color: var(--fg); margin-bottom: 4px; }
+  .section-label {
+    margin: 16px 0 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .maq { transition: none; }
+  }
+  body.embedded { background: transparent; }
+  body.embedded header { display: none; }
+  body.embedded .wrap { padding-top: 10px; padding-bottom: 24px; }
+  body.embedded .bar { padding: 8px 12px; }
+  @media (min-width: 1080px) {
+    body.embedded .side { top: 8px; max-height: calc(100vh - 24px); }
+  }
+  .maq {
+    background: linear-gradient(155deg,
+      color-mix(in oklab, var(--rail, var(--idle)) 88%, #fff) 0%,
+      color-mix(in oklab, var(--rail, var(--idle)) 62%, #000) 100%) !important;
+    border: 2px solid color-mix(in oklab, var(--rail, var(--idle)) 92%, #fff) !important;
+    color: #0d1117 !important;
+  }
+  .maq::before { background: rgba(0,0,0,0.30); }
+  .maq .num { color: #0d1117; font-weight: 700; }
+  .maq .status {
+    background: rgba(13, 17, 23, 0.86) !important;
+    color: #ffffff !important;
+    font-weight: 800;
+  }
+  .maq .badge {
+    background: #0d1117;
+    color: #ffffff;
+    border: 1px solid rgba(255,255,255,0.35);
+  }
+  .maq .muted { color: rgba(13, 17, 23, 0.78) !important; }
+  .maq .who { color: #0d1117; font-weight: 700; }
+  .maq:hover { transform: translateY(-2px) scale(1.005); filter: brightness(1.05); }
+  .maq:active { transform: translateY(0) scale(0.995); }
+  .maq[data-on="1"] { outline: 3px solid #0d1117; outline-offset: 3px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand">
+      <img class="logo" alt="INGESA" src="https://raw.githubusercontent.com/vn-1993/INGESA/refs/heads/main/ingesa.png">
+      <div>
+        <p class="eyebrow">INGESA · Tejeduría</p>
+        <h1>Control de planta</h1>
+      </div>
+    </div>
+    <div class="bar-side">
+      <p class="now" id="now">—</p>
+      <p class="sub" id="sub">Conectando con la planta…</p>
+    </div>
+  </div>
+</header>
+<div class="wrap" id="app">
+  <div class="panel empty">
+    <b>Abriendo el tablero…</b>
+    <p>Si se queda en esta pantalla, no lo abras desde Descargas. En el celular Chrome no ejecuta un HTML guardado.</p>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="../ingesa-quota-meter.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+function startPanel() {
+if (window.__INGESA_PANEL__) return;
+window.__INGESA_PANEL__ = true;
+
+const isEmbedded = !!(window.parent && window.parent !== window);
+if (isEmbedded) {
+  try { document.body.classList.add('embedded'); } catch (e) {}
+}
+
+let panelUserName = "";
+function applyIndexContext(payload) {
+  if (!payload) return;
+  if (payload.name) {
+    panelUserName = String(payload.name).toUpperCase().trim();
+    try { paint(); } catch (e) {}
+  }
+  const root = document.documentElement;
+  const setV = (k, v) => { if (v) root.style.setProperty(k, v); };
+  setV('--bg', payload.bgBase);
+  setV('--surface', payload.bgSurface);
+  setV('--surface-2', payload.bgSurfaceAlt);
+  setV('--fg', payload.textMain);
+  setV('--muted', payload.textMuted);
+  setV('--faint', payload.textMuted);
+  setV('--line', payload.borderMain);
+  setV('--line-strong', payload.borderMain);
+  if (payload.accent) {
+    root.style.setProperty('--accent', payload.accent);
+    root.style.setProperty('--measure', payload.accent);
+  }
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta && payload.bgBase) meta.setAttribute('content', payload.bgBase);
+}
+window.addEventListener('message', (e) => {
+  const d = e.data;
+  if (!d || typeof d !== 'object') return;
+  if (d.type === 'INDEX_CONTEXT' && d.payload) applyIndexContext(d.payload);
+});
+try { window.parent?.postMessage({ type: 'CHILD_READY' }, '*'); } catch (e) {}
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBHtXM5MEDZNRgUBraI9Qu3XN5ASBD5m6I",
+  authDomain: "ingesa-database.firebaseapp.com",
+  projectId: "ingesa-database",
+  storageBucket: "ingesa-database.firebasestorage.app",
+  messagingSenderId: "825361171137",
+  appId: "1:825361171137:web:02f6564b7f09040d7f8a40"
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = window.INGESA_QUOTA_METER.install(firebase.firestore(), 'maquinas_alarmas');
+const HIDDEN_KEY = "ingesa_prueba_ocultos";
+const SOUND_KEY = "ingesa_panel_sound_on";
+
+// ===== Aviso sonoro de nuevas alertas =====
+let soundOn = (() => { try { return localStorage.getItem(SOUND_KEY) !== "off"; } catch (e) { return true; } })();
+let audioCtx = null;
+let soundBaseline = false;
+let seenAlertIds = new Set();
+function ensureAudioCtx() {
+  if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audioCtx = null; } }
+  if (audioCtx && audioCtx.state === "suspended") { try { audioCtx.resume(); } catch (e) {} }
+  return audioCtx;
+}
+function playNotify() {
+  if (!soundOn) return;
+  const ctx = ensureAudioCtx();
+  if (!ctx) return;
+  try {
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(880, t);
+    osc.frequency.setValueAtTime(660, t + 0.15);
+    osc.frequency.setValueAtTime(990, t + 0.30);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.22, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+    osc.start(t); osc.stop(t + 0.6);
+  } catch (e) {}
+}
+function checkNewAlertsForSound() {
+  if (!state.ready) return;
+  const current = new Set();
+  for (const a of state.alerts.values()) if (!a.resuelto) current.add(a.id);
+  if (!soundBaseline) { seenAlertIds = current; soundBaseline = true; return; }
+  let hasNew = false;
+  for (const id of current) { if (!seenAlertIds.has(id)) { hasNew = true; break; } }
+  seenAlertIds = current;
+  if (hasNew) playNotify();
+}
+
+// ===== Gestión de motivos personalizados =====
+const MOTIVO_LABELS = {
+  GIRANDO: "↻ Girando",
+  MANTENIMIENTO: "🛠️ Mantenimiento",
+  CALENTANDO: "🔥 Calentando",
+  FALLA: "⛔ Falla mecánica",
+  FALLANDO: "⚠ Trabajando con fallas",
+  SIN_TRABAJO: "⏸ Sin trabajo",
+  ALERTA_URGENTE: "🚨 Alerta rápida",
+  REPUESTOS: "🔩 Repuestos",
+  PRUEBAS: "🧪 Pruebas"
+};
+const MOTIVO_ORDEN = ["GIRANDO","MANTENIMIENTO","CALENTANDO","FALLA","FALLANDO","SIN_TRABAJO","ALERTA_URGENTE","REPUESTOS","PRUEBAS"];
+
+async function cargarMotivos() {
+  state.motivosLoaded = true;
+  try {
+    const snap = await db.collection("motivos_maquina").where("aprobado", "==", true).limit(500).get();
+    state.motivos = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+    state.note = state.motivos.length + " motivos personalizados cargados.";
+  } catch (e) {
+    state.note = "No se pudieron cargar los motivos: " + (e.message || "");
+  }
+  paint();
+}
+
+async function guardarMotivo(id) {
+  const texto = String(state.motivosDraft || "").trim().replace(/\s+/g, " ").slice(0, 120);
+  if (!texto) { state.note = "El motivo no puede quedar vacío."; paint(); return; }
+  state.motivosBusy = id;
+  paint();
+  try {
+    await db.collection("motivos_maquina").doc(id).update({
+      texto,
+      editadoPor: panelUserName || "PANEL",
+      editadoAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    const item = state.motivos.find((m) => m.id === id);
+    if (item) item.texto = texto;
+    state.motivosEditing = null;
+    state.motivosDraft = "";
+    state.note = "Motivo actualizado.";
+  } catch (e) {
+    state.note = "No se pudo actualizar el motivo.";
+  } finally {
+    state.motivosBusy = "";
+    paint();
+  }
+}
+
+async function eliminarMotivo(id) {
+  if (!confirm("¿Eliminar este motivo? Ya no aparecerá en el escáner.")) return;
+  state.motivosBusy = id;
+  paint();
+  try {
+    await db.collection("motivos_maquina").doc(id).update({
+      aprobado: false,
+      eliminadoPor: panelUserName || "PANEL",
+      eliminadoAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    state.motivos = state.motivos.filter((m) => m.id !== id);
+    state.note = "Motivo eliminado.";
+  } catch (e) {
+    state.note = "No se pudo eliminar el motivo.";
+  } finally {
+    state.motivosBusy = "";
+    paint();
+  }
+}
+
+async function crearMotivo(tipo, texto) {
+  const limpio = String(texto || "").trim().replace(/\s+/g, " ").slice(0, 120);
+  const t = String(tipo || "").toUpperCase();
+  if (!t) { state.note = "Falta la categoría."; paint(); return; }
+  if (!limpio) { state.note = "El motivo no puede quedar vacío."; paint(); return; }
+  state.motivosBusy = "new";
+  paint();
+  try {
+    const ref = await db.collection("motivos_maquina").add({
+      tipo: t,
+      texto: limpio,
+      agregadoPor: panelUserName || "PANEL",
+      aprobado: true,
+      creadoDesdePanel: true,
+      timestamp: Date.now(),
+      fecha: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    state.motivos = [{ id: ref.id, tipo: t, texto: limpio, agregadoPor: panelUserName || "PANEL", aprobado: true, timestamp: Date.now() }].concat(state.motivos);
+    state.motivosAdding = false;
+    state.motivosNewTexto = "";
+    state.note = "Motivo agregado.";
+  } catch (e) {
+    state.note = "No se pudo agregar el motivo.";
+  } finally {
+    state.motivosBusy = "";
+    paint();
+  }
+}
+
+function motivosModal() {
+  if (!state.motivosOpen) return "";
+  const items = Array.isArray(state.motivos) ? state.motivos : [];
+  const tabKeys = MOTIVO_ORDEN.slice();
+  const counts = {};
+  tabKeys.forEach((t) => { counts[t] = 0; });
+  items.forEach((m) => {
+    const t = String(m.tipo || "").toUpperCase();
+    if (!t) return;
+    if (!(t in counts)) { counts[t] = 0; tabKeys.push(t); }
+    counts[t]++;
+  });
+  if (!counts[state.motivosTab] && tabKeys.indexOf(state.motivosTab) < 0) {
+    state.motivosTab = tabKeys[0] || "GIRANDO";
+  }
+  const activeTab = state.motivosTab;
+  const list = items
+    .filter((m) => String(m.tipo || "").toUpperCase() === activeTab)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+  const tabs = tabKeys.map((t) => "<button class='tab' data-on='" + (t === activeTab ? "1" : "0") + "' data-act='motivos-tab' data-id='" + esc(t) + "'>"
+    + "<span>" + esc(MOTIVO_LABELS[t] || t) + "</span>"
+    + "<span class='tab-n'>" + (counts[t] || 0) + "</span>"
+    + "</button>").join("");
+
+  const addBox = state.motivosAdding ? (
+    "<div class='motivo-add-box'>"
+    + "<label class='kicker' style='display:block;margin-bottom:6px'>Nuevo motivo · " + esc(MOTIVO_LABELS[activeTab] || activeTab) + "</label>"
+    + "<input class='motivo-input' data-motivo-new-input='1' value='" + esc(state.motivosNewTexto) + "' placeholder='Escribe el nuevo motivo…' maxlength='120' />"
+    + "<div class='actions'>"
+    + "<button class='btn' data-act='motivo-add-save' data-tipo='" + esc(activeTab) + "'" + (state.motivosBusy === "new" ? " disabled" : "") + ">" + (state.motivosBusy === "new" ? "Guardando…" : "Guardar") + "</button>"
+    + "<button class='btn ghost' data-act='motivo-add-cancel'>Cancelar</button>"
+    + "</div></div>"
+  ) : "";
+
+  const body = list.length ? list.map((m) => {
+    const editing = state.motivosEditing === m.id;
+    const busy = state.motivosBusy === m.id;
+    if (editing) {
+      return "<div class='card' style='margin-top:8px'>"
+        + "<div class='kicker'>" + esc(m.agregadoPor || "—") + (m.timestamp ? " · " + esc(ago(m.timestamp)) : "") + "</div>"
+        + "<input class='motivo-input' data-motivo-input='1' value='" + esc(state.motivosDraft) + "' />"
+        + "<div class='actions'>"
+        + "<button class='btn' data-act='motivo-save' data-id='" + esc(m.id) + "'" + (busy ? " disabled" : "") + ">" + (busy ? "Guardando…" : "Guardar") + "</button>"
+        + "<button class='btn ghost' data-act='motivo-cancel'>Cancelar</button>"
+        + "</div></div>";
+    }
+    return "<div class='card' style='margin-top:8px'>"
+      + "<div class='kicker'>" + esc(m.agregadoPor || "—") + (m.timestamp ? " · " + esc(ago(m.timestamp)) : "") + "</div>"
+      + "<p style='margin:6px 0 0;font-weight:600;font-size:0.95rem'>" + esc(m.texto || "") + "</p>"
+      + "<div class='actions'>"
+      + "<button class='btn ghost' data-act='motivo-edit' data-id='" + esc(m.id) + "' title='Editar'>✏️ Editar</button>"
+      + "<button class='btn danger' data-act='motivo-del' data-id='" + esc(m.id) + "' title='Eliminar'>❌ Eliminar</button>"
+      + "</div></div>";
+  }).join("") : "<div class='empty'><b>Sin motivos en esta categoría</b><p>Toca ➕ Agregar para crear el primero.</p></div>";
+
+  return "<div class='modal' data-act='motivos-close'><div class='panel dialog motivos' data-act='noop' role='dialog' aria-label='Motivos personalizados'>"
+    + "<div class='top'><div><div class='kicker'>Panel</div><h2 style='margin:2px 0 0'>Motivos personalizados</h2></div>"
+    + "<div class='actions' style='margin:0'>"
+    + (state.motivosAdding ? "" : "<button class='btn' data-act='motivo-add-open'>➕ Agregar</button>")
+    + "<button class='btn ghost' data-act='motivos-close'>Cerrar</button>"
+    + "</div></div>"
+    + "<p class='muted' style='margin-top:6px'>Elige una categoría. Cada motivo se puede editar ✏️ o eliminar ❌. Los cambios se ven al instante en el escáner.</p>"
+    + "<div class='tabs'>" + tabs + "</div>"
+    + addBox
+    + body
+    + "</div></div>";
+}
+const unlockAudio = () => { ensureAudioCtx(); document.removeEventListener("click", unlockAudio); document.removeEventListener("touchstart", unlockAudio); };
+document.addEventListener("click", unlockAudio);
+document.addEventListener("touchstart", unlockAudio);
+
+const state = {
+  machines: [],
+  alerts: new Map(),
+  ready: false,
+  reads: 0,
+  warning: "",
+  note: "",
+  floor: "todas",
+  cat: "todas",
+  focus: null,
+  sort: "numero",
+  saving: "",
+  hidden: [],
+  readLocal: new Set(),
+  confirm: null,
+  cleaning: false,
+  seenBill: {},
+  motivos: [],
+  motivosOpen: false,
+  motivosTab: "GIRANDO",
+  motivosEditing: null,
+  motivosDraft: "",
+  motivosBusy: "",
+  motivosLoaded: false,
+  motivosAdding: false,
+  motivosNewTexto: ""
+};
+
+try {
+  const raw = JSON.parse(localStorage.getItem(HIDDEN_KEY) || "[]");
+  if (Array.isArray(raw)) state.hidden = raw.map(String);
+} catch (e) {}
+
+const SORTS = [
+  ["numero", "Número"],
+  ["urgencia", "Urgencia"],
+  ["estado", "Estado"],
+  ["tiempo", "Más tiempo"]
+];
+const ESTADOS_PANEL = [
+  ["Trabajando bien", "Trabajando"],
+  ["Calentando", "Calentando"],
+  ["Girando", "Girando"],
+  ["Revisión de medidas", "Medidas"],
+  ["Trabajando con Fallas", "Con fallas"],
+  ["Falla Mecánica", "Falla"],
+  ["Máquina Apagada", "Sin trabajo"],
+  ["Mantenimiento", "Mantenimiento"],
+  ["Pruebas", "Pruebas"],
+  ["Falta de Repuestos", "Repuestos"],
+  ["Producto terminado", "Terminada"]
+];
+try {
+  const savedSort = localStorage.getItem("ingesa_prueba_orden");
+  if (SORTS.some(([id]) => id === savedSort)) state.sort = savedSort;
+} catch (e) {}
+
+const FLOORS = [
+  ["todas", "Todas"],
+  ["trabajando", "Trabajando"],
+  ["medidas", "Medidas"],
+  ["fallas", "Fallas"],
+  ["paradas", "Sin trabajo"],
+  ["sin_reporte", "Sin reporte"]
+];
+const CATS = [
+  ["todas", "Todas"],
+  ["importantes", "★ Importantes"],
+  ["calidad", "Calidad"],
+  ["medidas", "Medidas"],
+  ["logistica", "Logística"],
+  ["operador", "Operador"],
+  ["maquina", "Máquina"],
+  ["motivo", "Motivos"]
+];
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "\u0026amp;",
+    "<": "\u0026lt;",
+    ">": "\u0026gt;",
+    "\"": "\u0026quot;",
+    "'": "\u0026#39;"
+  }[c]));
+}
+function str(v) { return v == null ? "" : String(v).trim(); }
+function millis(v) {
+  if (v == null || v === "") return 0;
+  if (typeof v === "number") return v < 1e12 ? v * 1000 : v;
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === "string") { const t = Date.parse(v); return Number.isNaN(t) ? 0 : t; }
+  if (typeof v.toMillis === "function") { try { return v.toMillis(); } catch (e) {} }
+  if (typeof v.toDate === "function") { try { return v.toDate().getTime(); } catch (e) {} }
+  if (typeof v.seconds === "number") return v.seconds * 1000;
+  return 0;
+}
+function pick(row, keys) {
+  for (const k of keys) { const v = str(row[k]); if (v) return v; }
+  return "";
+}
+function machineNo(row) {
+  const raw = pick(row, ["maquina", "maquinaTejeduria", "maquinaNumero", "numero", "machine"]);
+  const d = raw.match(/\d+/);
+  return d ? String(parseInt(d[0], 10)) : raw;
+}
+function normAlert(id, data) {
+  const foto = str(data.foto_evidencia || data.foto || data.fotoUrl);
+  const safe = /^data:image\/(jpeg|png|webp);base64,/i.test(foto) || /^https?:\/\//i.test(foto) ? foto : "";
+  const rows = Array.isArray(data.resultadosFuera) ? data.resultadosFuera : (Array.isArray(data.medidas) ? data.medidas : []);
+  const kg = data.totalKg;
+  return {
+    id,
+    tipo: str(data.tipo).toUpperCase(),
+    origen: str(data.origen).toUpperCase(),
+    leida: data.leida === true,
+    resuelto: data.resuelto === true,
+    ms: millis(data.fecha) || millis(data.timestamp) || millis(data.createdAt),
+    detalles: str(data.detalles || data.detalle || data.mensaje),
+    operador: str(data.operador || data.responsable),
+    maquina: machineNo(data),
+    codigo: pick(data, ["codigoUnico", "codigoCarga", "loteTenido"]),
+    modelo: pick(data, ["modeloCodigo", "modelo"]),
+    talla: str(data.talla),
+    color: str(data.color),
+    partida: str(data.partida),
+    totalKg: kg == null || kg === "" || !Number.isFinite(Number(kg)) ? null : Number(kg),
+    totalPieces: data.totalPieces == null || data.totalPieces === "" ? null : Number(data.totalPieces),
+    jefe: str(data.jefeAsignadoName || data.jefe),
+    escalada: data.escalada === true || str(data.tipo).toUpperCase().includes("ESCALADA"),
+    medidasFuera: Array.isArray(data.medidasFuera) ? data.medidasFuera.map(str).filter(Boolean) : [],
+    resultados: rows.map((item) => {
+      const r = item || {};
+      return {
+        nombre: str(r.nombre || r.medida || r.campo) || "Medida",
+        grupo: str(r.grupo),
+        medido: str(r.medido || r.valor || r.real) || "sin dato",
+        oficial: str(r.oficial || r.esperado || r.nominal) || "—",
+        tolerancia: str(r.tolerancia || r.tol) || "—",
+        pendiente: r.requiereVerificacion === true
+      };
+    }),
+    repuestoNombre: str(data.repuestoNombre),
+    repuestoCodigo: str(data.repuestoCodigo),
+    foto: safe,
+    subEstado: str(data.sub_estado || data.subEstado),
+    defectoCodigo: str(data.defectoCodigo),
+    defectoNombre: str(data.defectoNombre),
+    cantidadLienzos: Number(data.cantidadLienzos) || 0,
+    primera: data.primera === true,
+    observacion: str(data.observacion),
+    rutaCalidad: str(data.ruta),
+    textoIntento: str(data.textoIntento),
+    tipoMotivo: str(data.tipoMotivo),
+    motivoPersonalizadoId: str(data.motivoPersonalizadoId),
+    motivoPersonalizadoPor: str(data.motivoPersonalizadoPor),
+    importante: data.importante === true,
+    importanteAt: millis(data.importanteAt),
+    importantePor: str(data.importantePor)
+  };
+}
+function category(a) {
+  const t = a.tipo || "";
+  const o = a.origen || "";
+  if (t === "CALIDAD_DEFECTO" || o === "ESCANER_CALIDAD") return "calidad";
+  if (t === "SALDO_RECEPCION") return "logistica";
+  if (t === "SOLICITUD_MODIFICACION_CARGA") return "logistica";
+  if (t === "ALERTA_MEDIDAS" || t.startsWith("ALERTA_MEDIDAS") || t.includes("MEDIDA") || t === "REVISION_DE_MEDIDAS" || o === "ESCANER_MEDIDAS") return "medidas";
+  if (t.includes("REPOSICION_TEJIDO") || t === "CARGA_TINTORERIA_LISTA" || o.includes("ARMADOR_PARTIDAS")) return "logistica";
+  if (t.startsWith("ALERTA_OPERADOR")) return "operador";
+  if (t === "INTENTO_MOTIVO_BLOQUEADO") return "motivo";
+  return "maquina";
+}
+function titleOf(a) {
+  const map = {
+    CALIDAD_DEFECTO: "Defecto de calidad",
+    ALERTA_MEDIDAS: "Medida fuera de tolerancia",
+    ALERTA_REPOSICION_TEJIDO: "Reposición de tejido",
+    ALERTA_REPOSICION_TEJIDO_ESCALADA: "Reposición escalada",
+    CARGA_TINTORERIA_LISTA: "Carga lista para tintorería",
+    ALERTA_OPERADOR_URGENTE: "Urgente del operador",
+    ALERTA_OPERADOR_FALTA_HILO: "Falta de hilo",
+    ALERTA_OPERADOR_FALLA_MAQ: "Falla de máquina",
+    ALERTA_OPERADOR_MANTENIM: "Mantenimiento",
+    ALERTA_OPERADOR_PRODUCCION: "Duda de producción",
+    ALERTA_OPERADOR_OTRO: "Aviso del operador",
+    FALTA_DE_REPUESTOS: "Falta de repuestos",
+    PRUEBAS: "Pruebas",
+    MAQUINA_PARADA: "Máquina parada",
+    FALTA_PAPELETAS: "Falta de papeletas",
+    FALLA_TEJIENDO: "Falla tejiendo",
+    SIN_PAPELETAS: "Sin papeletas",
+    FOTO_EVADIDA: "Foto evadida",
+    GIRANDO: "Girando",
+    REVISION_DE_MEDIDAS: "Revisión de medidas",
+    PRODUCTO_TERMINADO: "Producto terminado",
+    MANTENIMIENTO: "Mantenimiento",
+    DISCREPANCIA_TRAZABILIDAD: "Discrepancia de trazabilidad",
+    SOLICITUD_MODIFICACION_CARGA: "Solicitud de cambio en carga",
+    SALDO_RECEPCION: "Saldo disponible de recepción",
+    INTENTO_MOTIVO_BLOQUEADO: "Motivo bloqueado · revisión"
+  };
+  if (map[a.tipo]) return map[a.tipo];
+  if (!a.tipo) return "Alerta";
+  return a.tipo.replace(/^ALERTA_/, "").replace(/_/g, " ").toLowerCase();
+}
+function fingerprint(a) {
+  if (category(a) === "medidas") {
+    const sig = a.resultados.map((r) => r.nombre + ":" + r.medido).join("|") || a.medidasFuera.join("|") || a.detalles.slice(0, 160);
+    return [a.maquina || a.codigo, a.tipo, sig].join("§");
+  }
+  if (category(a) === "calidad") {
+    const sig = [a.defectoCodigo, a.modelo, a.talla, a.partida].join("|");
+    return [a.maquina || a.codigo || "—", a.tipo, sig].join("§");
+  }
+  const detail = (a.subEstado || a.detalles || a.codigo || "").replace(/\s+/g, " ").slice(0, 160).toUpperCase();
+  return [a.maquina || a.codigo || "—", a.tipo, detail].join("§");
+}
+function groupsOf() {
+  const buckets = new Map();
+  for (const a of state.alerts.values()) {
+    if (a.resuelto) continue;
+    if (a.tipo === "INTENTO_MOTIVO_BLOQUEADO") {
+      const autorizado = panelUserName && ["HERNÁN", "HERNAN", "VALLEJO"].some(n => panelUserName.includes(n));
+      if (!autorizado) continue;
+    }
+    if (state.readLocal.has(a.id)) a.leida = true;
+    const key = fingerprint(a);
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(a);
+  }
+  const out = [];
+  for (const list of buckets.values()) {
+    list.sort((a, b) => b.ms - a.ms);
+    const head = list[0];
+    out.push(Object.assign({}, head, { copies: list.length, extraIds: list.slice(1).map((x) => x.id) }));
+  }
+  out.sort((a, b) => b.ms - a.ms);
+  return out;
+}
+function tone(estado) {
+  const e = estado.toLowerCase();
+  if (!e) return "idle";
+  if (e.includes("revis") && e.includes("medida")) return "measure";
+  if (e.includes("falla") || e.includes("detenida") || e.includes("papeleta")) return "bad";
+  if (e.includes("falta de trabajo") || e.includes("apagada") || e.includes("parada")) return "idle";
+  if (e.includes("calentando")) return "warn";
+  if (e.includes("girando")) return "spin";
+  if (e.includes("bien") || e.includes("terminado") || e.includes("trabajando")) return "ok";
+  return "warn";
+}
+function statusLabel(estado) {
+  // Se conserva el texto completo que escribió el operador cuando aporta más
+  // información que la etiqueta corta (por ej. "Falla Mecánica grave" ya no se
+  // colapsa a "Falla"). Antes, cualquier cadena que contuviera "falla" se
+  // reducía a "Falla" y se perdía todo el contexto del reporte.
+  const raw = str(estado).trim();
+  const e = raw.toLowerCase();
+  if (!e) return "Sin reporte";
+  if (e === "trabajando bien" || e === "bien") return "Trabajando";
+  if (e === "calentando") return "Calentando";
+  if (e === "falta de trabajo" || e === "falta de trabajo (sin pendientes)") return "Sin trabajo";
+  if (e === "máquina apagada" || e === "maquina apagada") return "Apagada";
+  if (e === "detenida") return "Detenida";
+  if (e === "revisión de medidas" || e === "revision de medidas") return "Espera medidas";
+  if (e === "producto terminado") return "Terminada";
+  if (e === "girando") return "Girando";
+  if (e.includes("revis") && e.includes("medida")) return "Espera medidas";
+  if (e.includes("trabajando bien")) return "Trabajando";
+  if (e.includes("calentando")) return "Calentando";
+  if (e.includes("falta de trabajo")) return "Sin trabajo";
+  if (e.includes("girando")) return "Girando";
+  if (e.includes("terminado")) return "Terminada";
+  return raw;
+}
+function subVisible(estado, sub) {
+  const s = str(sub);
+  if (!s || s === "-" ) return "";
+  const e = estado.toLowerCase();
+  if ((e.includes("bien") || e.includes("trabajando")) && /falta de trabajo|apagada|2\s*[-–a]\s*3\s*horas|hasta\s+mañana/i.test(s) && !e.includes("falla")) return "";
+  return s;
+}
+function floorOf(m, measure) {
+  const e = m.estado.toLowerCase();
+  if (!e) return "sin_reporte";
+  if ((e.includes("revis") && e.includes("medida")) || measure) return "medidas";
+  if (e.includes("falla") || e.includes("detenida") || e.includes("papeleta")) return "fallas";
+  if (e.includes("falta de trabajo") || e.includes("apagada") || e.includes("parada")) return "paradas";
+  return "trabajando";
+}
+function machineNum(m) { return parseInt(m.numero, 10) || 0; }
+function urgencyRank(m, waitingMeasure) {
+  const f = floorOf(m, waitingMeasure);
+  if (f === "fallas") return 0;
+  if (f === "medidas") return 1;
+  if (f === "paradas") return 2;
+  if (f === "sin_reporte") return 3;
+  return 4;
+}
+function sortVisible(list, measureSet) {
+  const mode = state.sort;
+  const arr = list.slice();
+  arr.sort((a, b) => {
+    let d = 0;
+    if (mode === "urgencia") d = urgencyRank(a, !!measureSet[a.numero]) - urgencyRank(b, !!measureSet[b.numero]);
+    else if (mode === "estado") d = statusLabel(a.estado).localeCompare(statusLabel(b.estado), "es");
+    else if (mode === "tiempo") {
+      const am = a.actualizadoMs || 0;
+      const bm = b.actualizadoMs || 0;
+      if (!am && bm) d = 1;
+      else if (am && !bm) d = -1;
+      else d = am - bm;
+    }
+    return d || machineNum(a) - machineNum(b);
+  });
+  return arr;
+}
+function isFault(estado) {
+  const e = estado.toLowerCase();
+  if (!e || e.includes("falta de trabajo")) return false;
+  return e.includes("papeleta") || e.includes("falla") || e.includes("detenida");
+}
+function estadoKey(m) { return m.id + "|" + m.estado.toLowerCase() + "|" + subVisible(m.estado, m.subEstado).toLowerCase(); }
+function clock(ms) {
+  if (!ms) return "sin hora";
+  return new Date(ms).toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+function ago(ms) {
+  if (!ms) return "";
+  const min = Math.floor(Math.max(0, Date.now() - ms) / 60000);
+  if (min < 1) return "ahora";
+  if (min < 60) return "hace " + min + " min";
+  const h = Math.floor(min / 60);
+  if (h < 36) return "hace " + h + " h";
+  return "hace " + Math.floor(h / 24) + " d";
+}
+
+function bill(name, snap) {
+  if (snap.metadata && snap.metadata.fromCache) return;
+  if (!state.seenBill[name]) {
+    state.seenBill[name] = true;
+    state.reads += snap.size || 0;
+  } else {
+    state.reads += snap.docChanges().filter((c) => c.type === "added" || c.type === "modified").length;
+  }
+}
+/* Ingesta ADITIVA de alertas.
+   Antes cada snapshot REEMPLAZABA su "bucket" y se reconstruía la unión.
+   Si un listener disparaba vacío (por caché, por un filtro que no matchea o
+   porque otro listener aún no llegaba), la unión quedaba incompleta y los
+   avisos desaparecían durante un instante. Ahora se ACUMULAN en `liveAlerts`
+   y solo se quitan cuando un snapshot los marca explícitamente como resueltos. */
+const liveAlerts = new Map();
+
+function putAlerts(snap, name) {
+  bill(name, snap);
+  const fromCache = !!(snap.metadata && snap.metadata.fromCache === true);
+  // Un snapshot de caché VACÍO no debe borrar lo que ya está en pantalla.
+  if (fromCache && (snap.size || 0) === 0) { state.ready = true; paint(); return; }
+  snap.forEach((d) => {
+    const a = normAlert(d.id, d.data() || {});
+    if (a.resuelto) {
+      // Solo se elimina si el propio documento llega marcado como resuelto.
+      liveAlerts.delete(d.id);
+    } else {
+      liveAlerts.set(d.id, a);
+    }
+  });
+  state.alerts = new Map(liveAlerts);
+  state.ready = true;
+  paint();
+}
+
+function mergeBuckets() {
+  // Compatibilidad: la unión ahora vive en `liveAlerts` y en `state.alerts`.
+  state.alerts = new Map(liveAlerts);
+}
+
+let raf = 0;
+function paint() { cancelAnimationFrame(raf); raf = requestAnimationFrame(render); }
+function tickClock() {
+  const el = document.getElementById("now");
+  if (!el) return;
+  el.textContent = new Date().toLocaleString("es-MX", {
+    weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
+  });
+}
+setInterval(tickClock, 30000);
+tickClock();
+
+function listen() {
+  db.collection("maquinas").get().then((snap) => {
+    if (!(snap.metadata && snap.metadata.fromCache)) state.reads += snap.size;
+    state.catalog = {};
+    snap.forEach((d) => { state.catalog[d.id] = d.data() || {}; });
+    mergeMachines();
+    paint();
+  }).catch((e) => { state.warning = "No se pudo leer el catálogo. " + (e.message || ""); paint(); });
+
+  db.collection("maquinas_estado").onSnapshot((snap) => {
+    bill("estados", snap);
+    state.estados = {};
+    snap.forEach((d) => { state.estados[d.id] = d.data() || {}; });
+    mergeMachines();
+    state.ready = true;
+    paint();
+  }, (e) => { state.warning = "No se escuchan los estados. " + (e.message || ""); state.ready = true; paint(); });
+
+  db.collection("alertas_admin").where("resuelto", "==", false).limit(220).onSnapshot((snap) => putAlerts(snap, "abiertas"), (e) => {
+    state.warning = state.warning || ("Alertas abiertas no disponibles. " + (e.message || ""));
+    paint();
+  });
+
+  db.collection("alertas_admin")
+    .where("origen", "in", ["ARMADOR_PARTIDAS", "ARMADOR_PARTIDAS_ESCALACION"])
+    .limit(120)
+    .onSnapshot((snap) => {
+      bill("armador", snap);
+      const next = new Map();
+      snap.forEach((d) => {
+        const a = normAlert(d.id, d.data() || {});
+        if (!a.resuelto) next.set(d.id, a);
+      });
+      mergeBuckets();
+      paint();
+    }, (e) => {
+      state.warning = state.warning || ("Alertas del armador no disponibles. " + (e.message || ""));
+      paint();
+    });
+
+  try {
+    db.collection("recepcion_tejido")
+      .where("saldoDisponible", ">", 0)
+      .limit(120)
+      .onSnapshot((snap) => {
+        bill("saldos", snap);
+        const next = new Map();
+        snap.forEach((d) => {
+          const data = d.data() || {};
+          const disponible = Number(data.saldoDisponible || 0);
+          if (!(disponible > 0)) return;
+          next.set(d.id, {
+            id: d.id,
+            tipo: "SALDO_RECEPCION",
+            origen: "ARMADOR_PARTIDAS",
+            leida: false,
+            resuelto: false,
+            ms: millis(data.updatedAt) || millis(data.createdAt),
+            detalles: (Number(data.receivedBad) || 0) + " piezas malas registradas · " + disponible + " disponibles para reutilizar",
+            operador: str(data.operatorName),
+            maquina: machineNo(data),
+            codigo: str(data.pkgCode),
+            modelo: str(data.model),
+            talla: str(data.talla),
+            color: str(data.color),
+            totalKg: Number(data.kg) || null,
+            totalPieces: Number(data.receivedGood) || null,
+            jefe: "",
+            escalada: false,
+            medidasFuera: [],
+            resultados: [],
+            repuestoNombre: "",
+            repuestoCodigo: "",
+            foto: "",
+            subEstado: str(data.incidenciaTipo || "")
+          });
+        });
+        mergeBuckets();
+        paint();
+      }, (e) => {
+        console.warn("[saldos]", e && (e.code || e.message));
+      });
+  } catch (e) { console.warn("[saldos]", e); }
+
+  const recent = db.collection("alertas_admin").orderBy("fecha", "desc").limit(160);
+  recent.onSnapshot((snap) => putAlerts(snap, "recientes"), () => {
+    db.collection("alertas_admin").orderBy("timestamp", "desc").limit(160).onSnapshot((snap) => putAlerts(snap, "recientes-ts"), (e) => {
+      state.warning = state.warning || "No se pudieron ordenar las alertas recientes. Siguen las que están marcadas abiertas.";
+      paint();
+    });
+  });
+}
+
+function mergeMachines() {
+  const estados = state.estados || {};
+  const catalog = state.catalog || null;
+  const byNum = {};
+  Object.keys(estados).forEach((id) => {
+    const data = estados[id] || {};
+    const numero = String(data.numero || id);
+    const key = String(parseInt(numero, 10) || numero);
+    const ms = millis(data.ultima_actualizacion);
+    const pack = { data, docId: id, ms };
+    const prev = byNum[key];
+    if (!prev) { byNum[key] = pack; return; }
+    const prevExact = prev.docId === key;
+    const nextExact = id === key;
+    if (nextExact && !prevExact) byNum[key] = pack;
+    else if (!prevExact && !nextExact && ms >= prev.ms) byNum[key] = pack;
+    else if (prevExact && nextExact && ms >= prev.ms) byNum[key] = pack;
+  });
+  const rows = [];
+  const push = (key, pack, cat) => {
+    cat = cat || {};
+    const data = (pack && pack.data) || {};
+    const numero = String(data.numero || cat.numero || key);
+    const id = String(parseInt(numero, 10) || numero);
+    rows.push({
+      id, numero: id,
+      docId: pack && pack.docId ? pack.docId : "",
+      marca: str(cat.marca || data.marca),
+      diametro: str(cat.diametro || data.diametro),
+      galga: str(cat.galga),
+      estado: str(data.estado_actual),
+      subEstado: str(data.sub_estado),
+      responsable: str(data.responsable),
+      actualizadoMs: millis(data.ultima_actualizacion),
+      requiereFoto: data.requiere_foto === true,
+      modelo: str(data.modelo_tejiendo),
+      color: str(data.color_tejiendo),
+      desde: millis(data.trabajando_desde_ms) || millis(data.trabajando_desde)
+    });
+  };
+  if (!catalog) {
+    Object.keys(byNum).forEach((k) => push(k, byNum[k]));
+  } else {
+    const used = {};
+    Object.keys(catalog).forEach((id) => {
+      const cat = catalog[id];
+      if (cat.activo === false) return;
+      const key = String(parseInt(String(cat.numero || id), 10) || cat.numero || id);
+      used[key] = true;
+      push(key, byNum[key] || null, cat);
+    });
+    Object.keys(byNum).forEach((k) => { if (!used[k]) push(k, byNum[k]); });
+  }
+  rows.sort((a, b) => machineNum(a) - machineNum(b));
+  state.machines = rows;
+}
+
+function alertBody(a) {
+  if (a.tipo === "SALDO_RECEPCION") {
+    return (a.operador ? "<p>Receptor " + esc(a.operador) + "</p>" : "")
+      + "<p>" + (a.totalPieces != null ? a.totalPieces + " buenas" : "") + (a.totalKg != null ? " · " + Number(a.totalKg).toFixed(2) + " kg" : "") + "</p>"
+      + (a.detalles ? "<p>" + esc(a.detalles) + "</p>" : "")
+      + (a.codigo ? "<p class='muted'>Código " + esc(a.codigo) + (a.modelo ? " · " + esc(a.modelo) : "") + (a.talla ? " · talla " + esc(a.talla) : "") + "</p>" : "");
+  }
+  if (a.tipo === "SOLICITUD_MODIFICACION_CARGA") {
+    return (a.operador ? "<p>Solicita " + esc(a.operador) + "</p>" : "")
+      + (a.codigo ? "<p class='muted'>Carga " + esc(a.codigo) + "</p>" : "")
+      + (a.detalles ? "<p>" + esc(a.detalles) + "</p>" : "");
+  }
+  const cat = category(a);
+  if (cat === "medidas") {
+    const rows = a.resultados.map((r) => "<tr><td><b>" + esc(r.nombre) + (r.grupo ? " · " + esc(r.grupo) : "") + (r.pendiente ? " · volver a medir" : "") + "</b></td><td class='num'>" + esc(r.medido) + "</td><td>" + esc(r.oficial) + "</td><td>" + esc(r.tolerancia) + "</td></tr>").join("");
+    return "<div class='muted'>" + (a.modelo ? "Modelo " + esc(a.modelo) : "") + (a.talla ? " · talla " + esc(a.talla) : "") + (a.operador ? "<br>Operador " + esc(a.operador) : "") + "</div>"
+      + (a.medidasFuera.length ? "<p><b>Fuera:</b> " + esc(a.medidasFuera.join(" · ")) + "</p>" : "")
+      + (rows ? "<table><thead><tr><th>Medida</th><th>Leída</th><th>Oficial</th><th>Tol.</th></tr></thead><tbody>" + rows + "</tbody></table>" : "")
+      + (a.detalles ? "<p>" + esc(a.detalles) + "</p>" : "");
+  }
+  if (cat === "calidad") {
+    return (a.defectoCodigo || a.defectoNombre
+        ? "<p><b>" + esc(a.defectoCodigo || "") + (a.defectoCodigo && a.defectoNombre ? " · " : "") + esc(a.defectoNombre || "") + "</b></p>"
+        : "")
+      + (a.cantidadLienzos ? "<p>" + a.cantidadLienzos + " lienzos afectados</p>" : "")
+      + (a.primera ? "<p><b>PRIMERA vez</b></p>" : "<p class='muted'>Repetida</p>")
+      + (a.modelo || a.talla || a.color || a.partida
+          ? "<p class='muted'>" + [
+              a.modelo ? "Modelo " + esc(a.modelo) : "",
+              a.partida ? "Partida " + esc(a.partida) : "",
+              a.talla ? "Talla " + esc(a.talla) : "",
+              a.color ? esc(a.color) : ""
+            ].filter(Boolean).join(" · ") + "</p>"
+          : "")
+      + (a.codigo ? "<p class='muted'>Etiqueta " + esc(a.codigo) + "</p>" : "")
+      + (a.observacion ? "<p>" + esc(a.observacion) + "</p>" : "")
+      + (a.operador ? "<p class='muted'>Reporta " + esc(a.operador) + "</p>" : "");
+  }
+  if (cat === "logistica") {
+    return (a.escalada ? "<p><b>Lleva más de una hora sin atenderse.</b></p>" : "")
+      + (a.jefe ? "<p>Jefe: " + esc(a.jefe) + "</p>" : "")
+      + (a.totalKg != null ? "<p>" + a.totalKg.toFixed(2) + " kg · " + (a.totalPieces || 0) + " pzas" + (a.color ? " · " + esc(a.color) : "") + "</p>" : "")
+      + (a.codigo ? "<p class='muted'>Código " + esc(a.codigo) + "</p>" : "")
+      + (a.detalles ? "<p>" + esc(a.detalles) + "</p>" : "");
+  }
+  if (a.tipo === "INTENTO_MOTIVO_BLOQUEADO") {
+    return "<p><b>Texto intentado:</b> " + esc(a.textoIntento || "(sin texto)") + "</p>"
+      + (a.tipoMotivo ? "<p class='muted'>Sección: " + esc(a.tipoMotivo) + "</p>" : "")
+      + (a.operador ? "<p class='muted'>Operador " + esc(a.operador) + "</p>" : "")
+      + (a.maquina ? "<p class='muted'>Máquina " + esc(a.maquina) + "</p>" : "");
+  }
+  return (a.operador ? "<p>Operador " + esc(a.operador) + "</p>" : "")
+    + ((a.subEstado || a.detalles) ? "<p>" + esc(a.subEstado || a.detalles) + "</p>" : "")
+    + ((a.motivoPersonalizadoPor || a.motivoPersonalizadoId) ? "<p class='muted'>Motivo agregado por <b>" + esc(a.motivoPersonalizadoPor || "—") + "</b></p>" : "")
+    + ((a.repuestoNombre || a.repuestoCodigo) ? "<p>Refacción " + esc(a.repuestoNombre || "—") + (a.repuestoCodigo ? " · " + esc(a.repuestoCodigo) : "") + "</p>" : "")
+    + (a.foto ? "<img class='ev' alt='Evidencia' src='" + esc(a.foto) + "'>" : "");
+}
+
+function cardAlert(a, inMachine) {
+  const cat = category(a);
+  const catName = { medidas: "Medidas", logistica: "Logística", operador: "Operador", maquina: "Máquina", calidad: "Calidad" }[cat];
+  const isBlocked = a.tipo === "INTENTO_MOTIVO_BLOQUEADO";
+  const actions = [];
+  if (isBlocked) {
+    actions.push("<button class='btn' data-act='motivo-autorizar' data-id='" + esc(a.id) + "'>Autorizar</button>");
+    actions.push("<button class='btn danger' data-act='motivo-eliminar' data-id='" + esc(a.id) + "'>Eliminar</button>");
+  } else {
+    if (!a.leida) actions.push("<button class='btn' data-act='read' data-id='" + esc(a.id) + "' data-maq='" + esc(a.maquina) + "'>Marcar leída</button>");
+    if (!inMachine && a.maquina) actions.push("<button class='btn ghost' data-act='open' data-id='" + esc(a.maquina) + "'>Abrir máquina</button>");
+  }
+  actions.push("<button class='btn " + (a.importante ? "" : "ghost") + "' data-act='toggle-important' data-id='" + esc(a.id) + "'>" + (a.importante ? "★ Importante" : "☆ Importante") + "</button>");
+  actions.push("<button class='btn ghost' data-act='pdf-one' data-id='" + esc(a.id) + "'>📄 PDF</button>");
+  return "<article class='card " + cat + (a.leida ? " read" : "") + (a.importante ? " starred" : "") + "'>"
+    + "<div class='kicker'>" + (a.importante ? "★ " : "") + catName + (a.tipo === "SALDO_RECEPCION" ? " · disponible" : "") + (a.copies > 1 ? " · " + a.copies + " iguales" : "") + (a.leida ? " · leída" : " · sin ver") + "</div>"
+    + "<h3>" + esc(titleOf(a)) + "</h3>"
+    + "<p class='muted'>" + (a.maquina ? "Máquina " + esc(a.maquina) : esc(a.codigo || "Sin referencia")) + (a.ms ? " · " + esc(clock(a.ms)) + " · " + esc(ago(a.ms)) : "") + "</p>"
+    + alertBody(a)
+    + "<div class='actions'>" + actions.join("") + "</div>"
+    + "</article>";
+}
+
+function render() {
+  const groups = groupsOf();
+  const measureSet = {};
+  groups.forEach((g) => { if (!g.leida && category(g) === "medidas" && g.maquina) measureSet[g.maquina] = true; });
+  const counts = { todas: state.machines.length, trabajando: 0, medidas: 0, fallas: 0, paradas: 0, sin_reporte: 0 };
+  state.machines.forEach((m) => { counts[floorOf(m, !!measureSet[m.numero])]++; });
+  const visible = sortVisible(state.machines.filter((m) => state.floor === "todas" || floorOf(m, !!measureSet[m.numero]) === state.floor), measureSet);
+  const catCounts = { todas: 0, importantes: 0, calidad: 0, medidas: 0, logistica: 0, operador: 0, maquina: 0, motivo: 0 };
+  let unreadDocs = 0;
+  groups.forEach((g) => {
+    catCounts.todas++;
+    catCounts[category(g)]++;
+    if (g.importante) catCounts.importantes++;
+    if (!g.leida) unreadDocs++;
+  });
+  const inbox = groups
+    .filter((g) => state.cat === "todas" || (state.cat === "importantes" ? g.importante : category(g) === state.cat))
+    .sort((a, b) => Number(a.leida) - Number(b.leida) || b.ms - a.ms);
+  const faults = state.machines.filter((m) => isFault(m.estado) && state.hidden.indexOf(estadoKey(m)) < 0);
+  const showFaults = state.cat === "todas" || state.cat === "maquina" || state.cat === "calidad";
+  const extra = [];
+  groups.forEach((g) => g.extraIds.forEach((id) => extra.push(id)));
+  const unread = unreadDocs + (showFaults ? faults.length : 0);
+  document.getElementById("sub").textContent = state.ready
+    ? (unread + " sin ver · " + state.machines.length + " máquinas · " + state.reads + " lecturas")
+    : "Conectando con la planta…";
+  tickClock();
+
+  const selected = state.machines.find((m) => m.id === state.focus);
+  const faultHtml = showFaults ? faults.map((m) => {
+    const sub = subVisible(m.estado, m.subEstado);
+    const detail = sub || "Sin detalle del operador";
+    const ctx = [m.modelo ? "Modelo " + esc(m.modelo) : "", m.color ? "Color " + esc(m.color) : ""].filter(Boolean).join(" · ");
+    return "<article class='card bad'><div class='kicker'>Piso · sin ver</div><h3>Máquina " + esc(m.numero) + " · " + esc(str(m.estado) || "Sin estado") + "</h3>"
+      + "<p><b>" + esc(detail) + "</b></p>"
+      + (ctx ? "<p class='muted'>" + ctx + "</p>" : "")
+      + "<p class='muted'>" + esc(m.responsable || "Sin operador") + (m.actualizadoMs ? " · " + esc(ago(m.actualizadoMs)) : "") + "</p>"
+      + "<div class='actions'><button class='btn' data-act='hide-fault' data-id='" + esc(m.id) + "'>Enterado</button>"
+      + "<button class='btn ghost' data-act='open' data-id='" + esc(m.id) + "'>Abrir</button></div></article>";
+  }).join("") : "";
+  const side = "<div class='panel side'><div class='top'><div><div class='kicker'>Bandeja</div><h2>Alertas abiertas</h2></div>"
+    + (extra.length ? "<button class='btn ghost' data-act='ask-clean' data-ids='" + esc(extra.join(",")) + "'>Consolidar " + extra.length + "</button>" : "")
+    + "</div><div class='tabs'>"
+    + CATS.map(([id, label]) => "<button class='tab' data-on='" + (state.cat === id ? "1" : "0") + "' data-act='cat' data-id='" + id + "'><span>" + label + "</span><span class='tab-n'>" + (catCounts[id] || 0) + "</span></button>").join("")
+    + "</div>"
+    + ((!inbox.length && !faultHtml) ? "<div class='empty'><b>Nada en esta categoría</b><p>Aquí entran las abiertas del escáner, el medidor, el operador y el armador.</p></div>" : "")
+    + faultHtml
+    + inbox.map((g) => cardAlert(g, false)).join("")
+    + "</div>";
+
+  const ficha = selected ? (function () {
+    const mine = groups.filter((g) => g.maquina === selected.numero);
+    const mineExtra = [];
+    mine.forEach((g) => g.extraIds.forEach((id) => mineExtra.push(id)));
+    const sub = subVisible(selected.estado, selected.subEstado);
+    const hiddenFault = state.hidden.indexOf(estadoKey(selected)) >= 0;
+    const states = ESTADOS_PANEL.map(([value, label]) => {
+      const on = selected.estado.trim().toLowerCase() === value.toLowerCase();
+      const busy = state.saving === selected.id + "|" + value;
+      return "<button class='state-opt t-" + tone(value) + "' data-on='" + (on ? "1" : "0") + "' data-act='set-state' data-id='" + esc(selected.id) + "' data-estado='" + esc(value) + "'" + (state.saving ? " disabled" : "") + ">" + esc(busy ? "Guardando…" : label) + "</button>";
+    }).join("");
+    return "<div class='modal' data-act='close'><div class='panel dialog ficha' data-act='noop' role='dialog' aria-label='Ficha de la máquina " + esc(selected.numero) + "'>"
+      + "<div class='top'><div><div class='kicker'>Ficha</div><div class='num'>" + esc(selected.numero) + "</div></div>"
+      + "<button class='btn ghost' data-act='close'>Cerrar</button></div>"
+      + "<div class='t-" + tone(selected.estado) + "' style='margin-top:10px'><span class='status'>" + esc(statusLabel(selected.estado)) + "</span></div>"
+      + "<p style='margin:10px 0 0;font-size:0.9rem'><b>Estado reportado:</b> " + esc(str(selected.estado) || "—") + "</p>"
+      + "<p style='margin:4px 0 0;font-size:0.9rem'><b>Detalle del operador:</b> " + esc(sub || "Sin detalle del operador") + "</p>"
+      + "<dl class='meta'>"
+      + meta("Operador", selected.responsable || "—")
+      + meta("Actualización", selected.actualizadoMs ? clock(selected.actualizadoMs) + " · " + ago(selected.actualizadoMs) : "Sin registro")
+      + meta("Modelo", selected.modelo || "—")
+      + meta("Color", selected.color || "—")
+      + meta("Equipo", [selected.marca, selected.diametro && ("Ø " + selected.diametro), selected.galga && (selected.galga + " G")].filter(Boolean).join(" · ") || "—")
+      + meta("En curso desde", selected.desde ? clock(selected.desde) : "—")
+      + meta("Sub-estado", str(selected.subEstado) || "—")
+      + "</dl>"
+      + (selected.requiereFoto ? "<p><b>Esta máquina exige foto.</b></p>" : "")
+      + (isFault(selected.estado) && !hiddenFault ? "<div class='actions'><button class='btn ghost' data-act='hide-fault' data-id='" + esc(selected.id) + "'>Enterado</button></div>" : "")
+      + "<p class='section-label'>Cambiar estado</p>"
+      + "<p class='muted'>Queda guardado en la máquina. El escáner lo ve al momento y no se crea una alerta nueva.</p>"
+      + "<div class='states'>" + states + "</div>"
+      + "<div class='top'><p class='section-label' style='margin:0'>Alertas de esta máquina</p>"
+      + (mineExtra.length ? "<button class='btn ghost' data-act='ask-clean' data-ids='" + esc(mineExtra.join(",")) + "'>Consolidar " + mineExtra.length + "</button>" : "")
+      + "</div>"
+      + (mine.length ? mine.map((g) => cardAlert(g, true)).join("") : "<p class='muted'>Sin alerta abierta para este número.</p>")
+      + "</div></div>";
+  })() : "";
+
+  const confirm = state.confirm ? "<div class='modal confirm' data-act='noop'><div class='panel dialog' data-act='noop'><h2>Consolidar reportes</h2><p class='muted'>Hay " + state.confirm.length + " copia" + (state.confirm.length === 1 ? "" : "s") + " del mismo aviso. Se cierra la repetición y se deja la más reciente. El estado de la máquina no cambia.</p><div class='actions'><button class='btn' data-act='do-clean' " + (state.cleaning ? "disabled" : "") + ">" + (state.cleaning ? "Cerrando…" : "Dejar solo la última") + "</button><button class='btn ghost' data-act='cancel-clean'>Cancelar</button></div></div></div>" : "";
+
+  const kpis = FLOORS.map(([id, label]) => "<button class='kpi' data-on='" + (state.floor === id ? "1" : "0") + "' data-act='floor' data-id='" + id + "'><span class='kpi-n'>" + counts[id] + "</span><span class='kpi-l'>" + esc(label) + "</span></button>").join("");
+  const sorts = SORTS.map(([id, label]) => "<button data-on='" + (state.sort === id ? "1" : "0") + "' data-act='sort' data-id='" + id + "'>" + esc(label) + "</button>").join("");
+
+  document.getElementById("app").innerHTML =
+    "<div class='kpis'>" + kpis + "</div>"
+    + "<div class='tools'>"
+    + (state.hidden.length ? "<button data-act='restore'>Mostrar " + state.hidden.length + " ocultas</button>" : "")
+    + "<button data-act='more'>Cargar anteriores</button>"
+    + "<button data-act='toggle-sound'>" + (soundOn ? "🔔 Aviso sonoro activo" : "🔕 Aviso silenciado") + "</button>"
+    + "<button data-act='pdf-visible'>📄 PDF de esta vista</button>"
+    + "<button data-act='motivos-open'>✏️ Gestionar motivos</button>"
+    + "<span>El historial completo no se descarga.</span></div>"
+    + (state.warning ? "<div class='banner'><span>" + esc(state.warning) + "</span></div>" : "")
+    + (state.note ? "<div class='banner'><span>" + esc(state.note) + "</span><button class='btn ghost' data-act='note'>Cerrar</button></div>" : "")
+    + "<div class='layout'><section>"
+    + "<div class='sortbar'><span>Orden</span><div class='sorts'>" + sorts + "</div></div>"
+    + (state.ready && !visible.length ? "<div class='panel empty'><b>Ninguna máquina en este filtro</b></div>" : "")
+    + "<div class='grid'>" + visible.map((m) => {
+      const open = groups.filter((g) => !g.leida && g.maquina === m.numero).length;
+      const sub = subVisible(m.estado, m.subEstado);
+      const fault = isFault(m.estado);
+      const sinDetalle = fault && !sub;
+      const subTxt = sub || (sinDetalle ? "Sin detalle del operador" : "");
+      const when = m.actualizadoMs ? ago(m.actualizadoMs) : "";
+      return "<button class='maq t-" + tone(m.estado) + "' id='maq-" + esc(m.id) + "' data-on='" + (state.focus === m.id ? "1" : "0") + "' data-act='open' data-id='" + esc(m.id) + "'>"
+        + "<div class='top'><span class='num'>" + esc(m.numero) + "</span>" + (open ? "<span class='badge'>" + open + "</span>" : "") + "</div>"
+        + "<span class='status'>" + esc(statusLabel(m.estado)) + "</span>"
+        + (subTxt ? "<span class='muted clamp-3'>" + esc(subTxt) + "</span>" : "")
+        + "<span class='who'>" + esc(m.responsable || "Sin operador") + (when ? " · " + esc(when) : "") + "</span></button>";
+    }).join("") + "</div></section>" + side + "</div>" + ficha + confirm + motivosModal();
+  checkNewAlertsForSound();
+}
+
+function meta(label, value) {
+  return "<div><dt>" + esc(label) + "</dt><dd>" + esc(value) + "</dd></div>";
+}
+
+document.getElementById("app").addEventListener("input", (ev) => {
+  const el = ev.target;
+  if (!el || !el.matches) return;
+  if (el.matches("[data-motivo-input]")) {
+    state.motivosDraft = el.value;
+  } else if (el.matches("[data-motivo-new-input]")) {
+    state.motivosNewTexto = el.value;
+  }
+});
+document.getElementById("app").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-act]");
+  if (!b) return;
+  const act = b.dataset.act;
+  if (act === "noop") return;
+  if (act === "floor") state.floor = b.dataset.id;
+  else if (act === "cat") state.cat = b.dataset.id;
+  else if (act === "sort") {
+    const id = b.dataset.id;
+    if (SORTS.some(([k]) => k === id)) {
+      state.sort = id;
+      try { localStorage.setItem("ingesa_prueba_orden", id); } catch (e) {}
+    }
+  }
+  else if (act === "open") { state.focus = b.dataset.id; }
+  else if (act === "close") state.focus = null;
+  else if (act === "set-state") { void setMachineState(b.dataset.id, b.dataset.estado); return; }
+  else if (act === "note") state.note = "";
+  else if (act === "read") {
+    const id = b.dataset.id;
+    state.readLocal.add(id);
+    if (b.dataset.maq) state.focus = b.dataset.maq;
+    db.collection("alertas_admin").doc(id).update({
+      leida: true,
+      leidaEn: firebase.firestore.FieldValue.serverTimestamp(),
+      leidaDesde: "PANEL_PRUEBA"
+    }).catch(() => {
+      state.readLocal.delete(id);
+      state.note = "No se pudo marcar como leída.";
+      paint();
+    });
+  } else if (act === "hide-fault") {
+    const m = state.machines.find((x) => x.id === b.dataset.id);
+    if (m) {
+      const key = estadoKey(m);
+      if (state.hidden.indexOf(key) < 0) state.hidden.push(key);
+      localStorage.setItem(HIDDEN_KEY, JSON.stringify(state.hidden));
+    }
+  } else if (act === "restore") {
+    state.hidden = [];
+    localStorage.removeItem(HIDDEN_KEY);
+  } else if (act === "ask-clean") {
+    state.confirm = (b.dataset.ids || "").split(",").filter(Boolean);
+  } else if (act === "cancel-clean") state.confirm = null;
+  else if (act === "do-clean") { void clean(state.confirm || []); }
+  else if (act === "more") { void more(); }
+  else if (act === "toggle-sound") {
+    soundOn = !soundOn;
+    try { localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off"); } catch (e) {}
+    if (soundOn) { ensureAudioCtx(); playNotify(); }
+  }
+  else if (act === "toggle-important") {
+    const a = liveAlerts.get(b.dataset.id);
+    if (a) { void toggleImportante(b.dataset.id, !a.importante); return; }
+  }
+  else if (act === "pdf-one") {
+    const a = liveAlerts.get(b.dataset.id);
+    if (a) { void generarPDF([a], { label: "uno" }); return; }
+  }
+  else if (act === "pdf-visible") { void pdfVisible(); return; }
+  else if (act === "motivo-autorizar") { void autorizarMotivo(b.dataset.id); return; }
+  else if (act === "motivo-eliminar") { void eliminarMotivoAlerta(b.dataset.id); return; }
+  else if (act === "motivos-open") {
+    state.motivosOpen = true;
+    state.motivosEditing = null;
+    state.motivosDraft = "";
+    state.motivosAdding = false;
+    state.motivosNewTexto = "";
+    if (!state.motivosTab) state.motivosTab = "GIRANDO";
+    if (!state.motivosLoaded) { void cargarMotivos(); return; }
+  }
+  else if (act === "motivos-close") {
+    state.motivosOpen = false;
+    state.motivosEditing = null;
+    state.motivosDraft = "";
+    state.motivosAdding = false;
+    state.motivosNewTexto = "";
+  }
+  else if (act === "motivos-tab") {
+    state.motivosTab = String(b.dataset.id || "").toUpperCase();
+    state.motivosEditing = null;
+    state.motivosDraft = "";
+    state.motivosAdding = false;
+    state.motivosNewTexto = "";
+  }
+  else if (act === "motivo-add-open") {
+    state.motivosAdding = true;
+    state.motivosNewTexto = "";
+    state.motivosEditing = null;
+    state.motivosDraft = "";
+  }
+  else if (act === "motivo-add-cancel") {
+    state.motivosAdding = false;
+    state.motivosNewTexto = "";
+  }
+  else if (act === "motivo-add-save") { void crearMotivo(b.dataset.tipo || state.motivosTab, state.motivosNewTexto); return; }
+  else if (act === "motivo-edit") {
+    const id = b.dataset.id;
+    const m = state.motivos.find((x) => x.id === id);
+    if (m) { state.motivosEditing = id; state.motivosDraft = m.texto || ""; state.motivosAdding = false; }
+  }
+  else if (act === "motivo-cancel") {
+    state.motivosEditing = null;
+    state.motivosDraft = "";
+  }
+  else if (act === "motivo-save") { void guardarMotivo(b.dataset.id); return; }
+  else if (act === "motivo-del") { void eliminarMotivo(b.dataset.id); return; }
+  paint();
+});
+
+async function autorizarMotivo(alertId) {
+  const a = liveAlerts.get(alertId);
+  if (!a || a.tipo !== "INTENTO_MOTIVO_BLOQUEADO") return;
+  const texto = String(a.textoIntento || "").trim();
+  if (!texto) { state.note = "No hay texto para autorizar."; paint(); return; }
+  try {
+    await db.collection("motivos_maquina").add({
+      tipo: String(a.tipoMotivo || "GIRANDO").toUpperCase(),
+      texto,
+      agregadoPor: String(a.operador || "AUTORIZADO").toUpperCase(),
+      aprobado: true,
+      autorizadoPor: panelUserName || "PANEL",
+      autorizadoAt: firebase.firestore.FieldValue.serverTimestamp(),
+      timestamp: Date.now(),
+      fecha: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await db.collection("alertas_admin").doc(alertId).update({
+      resuelto: true,
+      resueltoAt: firebase.firestore.FieldValue.serverTimestamp(),
+      resueltoPor: panelUserName || "PANEL",
+      resueltoDetalle: "Motivo autorizado y publicado."
+    });
+    liveAlerts.delete(alertId);
+    state.alerts.delete(alertId);
+    state.note = "Motivo autorizado y publicado para todos.";
+  } catch (e) {
+    state.note = "No se pudo autorizar el motivo.";
+  }
+  paint();
+}
+
+async function eliminarMotivoAlerta(alertId) {
+  try {
+    await db.collection("alertas_admin").doc(alertId).update({
+      resuelto: true,
+      resueltoAt: firebase.firestore.FieldValue.serverTimestamp(),
+      resueltoPor: panelUserName || "PANEL",
+      resueltoDetalle: "Motivo descartado por el revisor."
+    });
+    liveAlerts.delete(alertId);
+    state.alerts.delete(alertId);
+    state.note = "Motivo descartado.";
+  } catch (e) {
+    state.note = "No se pudo descartar el motivo.";
+  }
+  paint();
+}
+
+async function toggleImportante(alertId, value) {
+  const a = liveAlerts.get(alertId);
+  if (!a) return;
+  try {
+    await db.collection("alertas_admin").doc(alertId).update({
+      importante: !!value,
+      importanteAt: value ? firebase.firestore.FieldValue.serverTimestamp() : null,
+      importantePor: panelUserName || "PANEL"
+    });
+    a.importante = !!value;
+    a.importanteAt = value ? Date.now() : 0;
+    a.importantePor = value ? (panelUserName || "PANEL") : "";
+    state.alerts = new Map(liveAlerts);
+    state.note = value ? "Marcada como importante." : "Quitada de importantes.";
+  } catch (e) {
+    state.note = "No se pudo actualizar el estado importante.";
+  }
+  paint();
+}
+
+function dataUrlFormat(url) {
+  const m = String(url || "").match(/^data:image\/([a-z]+);base64,/i);
+  if (!m) return null;
+  const f = m[1].toLowerCase();
+  if (f === "jpeg" || f === "jpg") return "JPEG";
+  if (f === "png") return "PNG";
+  if (f === "webp") return "WEBP";
+  return null;
+}
+function imageSizeFromDataUrl(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ w: img.naturalWidth || img.width || 0, h: img.naturalHeight || img.height || 0 });
+    img.onerror = () => resolve({ w: 0, h: 0 });
+    img.src = url;
+  });
+}
+
+async function generarPDF(alerts, opts) {
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    state.note = "El generador de PDF aún carga. Intenta de nuevo en unos segundos.";
+    paint();
+    return;
+  }
+  const list = Array.isArray(alerts) ? alerts.filter(Boolean) : [];
+  if (!list.length) { state.note = "No hay alertas para generar el PDF."; paint(); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 12;
+  let y = margin;
+
+  doc.setFillColor(12, 14, 17);
+  doc.rect(0, 0, pageW, 22, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(15);
+  doc.setFont(undefined, "bold");
+  doc.text("INGESA · Reporte de alertas", margin, 11);
+  doc.setFontSize(9);
+  doc.setFont(undefined, "normal");
+  doc.text(new Date().toLocaleString("es-MX"), margin, 17);
+  doc.text("Generado por: " + (panelUserName || "PANEL"), pageW - margin, 11, { align: "right" });
+  doc.text("Total: " + list.length + " alerta" + (list.length === 1 ? "" : "s"), pageW - margin, 17, { align: "right" });
+  doc.setTextColor(20, 20, 20);
+  y = 32;
+
+  for (let i = 0; i < list.length; i++) {
+    const a = list[i];
+    if (y > pageH - 70) { doc.addPage(); y = margin; }
+
+    doc.setFillColor(240, 240, 245);
+    doc.rect(margin, y - 3.5, pageW - margin * 2, 8, "F");
+    doc.setFontSize(11);
+    doc.setFont(undefined, "bold");
+    doc.setTextColor(20, 20, 20);
+    doc.text((i + 1) + ". " + titleOf(a), margin + 2, y + 2);
+    y += 9;
+
+    doc.setFontSize(9);
+    doc.setFont(undefined, "normal");
+    doc.setTextColor(60, 60, 60);
+    const meta1 = [];
+    if (a.maquina) meta1.push("Máquina: " + a.maquina);
+    if (a.operador) meta1.push("Operador: " + a.operador);
+    if (a.ms) meta1.push("Fecha: " + clock(a.ms));
+    if (meta1.length) { doc.text(meta1.join("   ·   "), margin + 2, y + 3); y += 5; }
+
+    const meta2 = [];
+    if (a.codigo) meta2.push("Código: " + a.codigo);
+    if (a.modelo) meta2.push("Modelo: " + a.modelo);
+    if (a.partida) meta2.push("Partida: " + a.partida);
+    if (a.color) meta2.push("Color: " + a.color);
+    if (a.talla) meta2.push("Talla: " + a.talla);
+    if (meta2.length) { doc.text(meta2.join("   ·   "), margin + 2, y + 3); y += 5; }
+
+    if (a.repuestoNombre || a.repuestoCodigo) {
+      doc.setFont(undefined, "bold");
+      doc.text("Refacción: " + (a.repuestoNombre || "—") + "   ·   Código: " + (a.repuestoCodigo || "—"), margin + 2, y + 3);
+      doc.setFont(undefined, "normal");
+      y += 5;
+    }
+
+    const detalle = str(a.detalles || a.subEstado || "").replace(/\s+/g, " ").trim();
+    if (detalle) {
+      doc.setFontSize(9);
+      const lines = doc.splitTextToSize(detalle, pageW - margin * 2 - 4);
+      for (const line of lines) {
+        if (y > pageH - 30) { doc.addPage(); y = margin; }
+        doc.text(line, margin + 2, y + 3);
+        y += 4.5;
+      }
+    }
+
+    if (a.foto) {
+      const fmt = dataUrlFormat(a.foto);
+      if (fmt) {
+        try {
+          const dims = await imageSizeFromDataUrl(a.foto);
+          if (dims.w && dims.h) {
+            const maxW = pageW - margin * 2 - 4;
+            const maxH = 100;
+            const ratio = dims.w / dims.h;
+            let w = maxW, h = w / ratio;
+            if (h > maxH) { h = maxH; w = h * ratio; }
+            if (y + h + 8 > pageH - margin) { doc.addPage(); y = margin; }
+            doc.addImage(a.foto, fmt, margin + 2, y + 3, w, h);
+            y += h + 5;
+          }
+        } catch (e) { /* si la imagen falla, seguimos */ }
+      }
+    }
+
+    y += 3;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(margin, y, pageW - margin, y);
+    y += 7;
+  }
+
+  const stamp = new Date().toISOString().slice(0, 10);
+  const name = "INGESA_Alertas_" + stamp + "_" + (opts && opts.label ? opts.label : "") + ".pdf";
+  doc.save(name);
+  state.note = "PDF generado: " + name;
+  paint();
+}
+
+async function pdfVisible() {
+  const groups = groupsOf();
+  const visible = groups
+    .filter((g) => state.cat === "todas" || (state.cat === "importantes" ? g.importante : category(g) === state.cat))
+    .sort((a, b) => Number(a.leida) - Number(b.leida) || b.ms - a.ms);
+  await generarPDF(visible, { label: state.cat });
+}
+
+async function setMachineState(id, estado) {
+  const m = state.machines.find((x) => x.id === id);
+  const next = str(estado);
+  if (!m || !next) return;
+  if (m.estado.trim().toLowerCase() === next.toLowerCase()) return;
+  const prev = { estado: m.estado, subEstado: m.subEstado, actualizadoMs: m.actualizadoMs };
+  m.estado = next;
+  m.subEstado = "";
+  m.actualizadoMs = Date.now();
+  state.saving = id + "|" + next;
+  state.note = "";
+  paint();
+  const docId = m.docId || m.id;
+  try {
+    await db.collection("maquinas_estado").doc(docId).set({
+      numero: m.numero,
+      estado_actual: next,
+      sub_estado: "",
+      ultima_actualizacion: firebase.firestore.FieldValue.serverTimestamp(),
+      cambio_desde: "PANEL"
+    }, { merge: true });
+    state.note = "Máquina " + m.numero + " quedó en " + statusLabel(next) + ".";
+  } catch (e) {
+    const current = state.machines.find((x) => x.id === id);
+    if (current && current.estado === next) {
+      current.estado = prev.estado;
+      current.subEstado = prev.subEstado;
+      current.actualizadoMs = prev.actualizadoMs;
+    }
+    state.note = "No se pudo cambiar el estado.";
+  } finally {
+    state.saving = "";
+    paint();
+  }
+}
+
+async function clean(ids) {
+  const unique = Array.from(new Set(ids));
+  if (!unique.length) { state.confirm = null; paint(); return; }
+  state.cleaning = true; paint();
+  try {
+    for (let i = 0; i < unique.length; i += 400) {
+      const slice = unique.slice(i, i + 400);
+      const batch = db.batch();
+      slice.forEach((id) => batch.update(db.collection("alertas_admin").doc(id), {
+        resuelto: true,
+        resueltoAt: firebase.firestore.FieldValue.serverTimestamp(),
+        resueltoPor: "PANEL_PRUEBA",
+        resueltoDetalle: "Mismo reporte ya vigente. Se dejó solo el más reciente."
+      }));
+      await batch.commit();
+      slice.forEach((id) => {
+        liveAlerts.delete(id);
+        state.alerts.delete(id);
+      });
+    }
+    state.note = unique.length === 1 ? "Se quitó 1 reporte repetido." : ("Se quitaron " + unique.length + " reportes repetidos.");
+    state.confirm = null;
+  } catch (e) {
+    state.note = "No se pudieron quitar las repetidas.";
+  } finally {
+    state.cleaning = false;
+    paint();
+  }
+}
+
+async function more() {
+  state.note = "Buscando un lote más…";
+  paint();
+  try {
+    const snap = await db.collection("alertas_admin").orderBy("fecha", "desc").limit(400).get();
+    if (!(snap.metadata && snap.metadata.fromCache)) state.reads += snap.size;
+    snap.forEach((d) => {
+      const a = normAlert(d.id, d.data() || {});
+      if (!a.resuelto) liveAlerts.set(d.id, a);
+    });
+    state.alerts = new Map(liveAlerts);
+    state.note = "Listo. Lecturas de esta sesión: " + state.reads + ".";
+  } catch (e) {
+    state.note = "Ese lote no se pudo leer.";
+  }
+  paint();
+}
+
+listen();
+paint();
+}
+if (typeof firebase === "undefined") {
+  var box = document.getElementById("app");
+  if (box) box.innerHTML = "<div class='panel empty'><b>Este archivo no abre desde Descargas.</b><p>En el celular el navegador no ejecuta un HTML guardado. Ábrelo en la vista de esta conversación.</p></div>";
+} else {
+  startPanel();
+}
+</script>
+</body>
+</html>

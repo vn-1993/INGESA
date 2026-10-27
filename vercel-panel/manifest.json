@@ -1,0 +1,18 @@
+{
+  "name": "INGESA Control Ejecutivo",
+  "short_name": "INGESA",
+  "description": "Panel ejecutivo de operación, calidad, logística, hilaturas y máquinas de INGESA.",
+  "lang": "es-MX",
+  "dir": "ltr",
+  "start_url": "./panel-ejecutivo-real.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#061324",
+  "theme_color": "#07182d",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "assets/ingesa-official.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "assets/ingesa-official.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
