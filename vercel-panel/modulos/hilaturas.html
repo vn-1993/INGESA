@@ -21,7 +21,6 @@
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="../ingesa-quota-meter.js"></script>
     
     <!-- jsPDF y AutoTable (Para reportes) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -75,7 +74,308 @@
   body .tab-adapted { border-radius: 8px; }
 
 </style>
-<script src="../ingesa-quota-meter.js"></script>
+<script>
+/* INGESA Firestore read meter v3 — iframe -> index bridge, client-side estimate only. */
+(function (global) {
+  'use strict';
+  if (global.INGESA_QUOTA_METER?.version === 3) return;
+
+  const PROTOCOL = 1;
+  const HELLO = 'INGESA_QUOTA_BRIDGE_HELLO';
+  const ACK = 'INGESA_QUOTA_BRIDGE_ACK';
+  const REPORT = 'INGESA_QUOTA_BRIDGE_REPORT';
+  const chainMethods = new Set(['collection', 'collectionGroup', 'doc', 'where', 'orderBy', 'limit', 'startAt', 'startAfter', 'endAt', 'endBefore', 'select', 'withConverter']);
+  const installedDbs = new WeakMap();
+
+  const normalizeAppKey = value => String(value || 'app').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'app';
+  const safeUser = () => {
+    try {
+      const user = JSON.parse(global.localStorage.getItem('ingesa_logged_user') || 'null');
+      const id = String(user?.id || user?.uid || user?.username || user?.name || '').trim();
+      return id ? { id, name: String(user?.name || id), role: String(user?.role || '') } : null;
+    } catch (e) { return null; }
+  };
+  const countInitialSnapshot = snap => Array.isArray(snap?.docs) ? Math.max(1, snap.docs.length) : 1;
+
+  function install(db, appName) {
+    if (!db || typeof db.collection !== 'function') return db;
+    if (installedDbs.has(db)) return installedDbs.get(db);
+
+    const rawCollection = db.collection.bind(db);
+    const rawDoc = typeof db.doc === 'function' ? db.doc.bind(db) : null;
+    const rawCollectionGroup = typeof db.collectionGroup === 'function' ? db.collectionGroup.bind(db) : null;
+    const FieldValue = global.firebase?.firestore?.FieldValue;
+    const localAppKey = normalizeAppKey(appName || global.document?.title || 'app');
+    const pending = new Map();
+    const preConfiguration = new Map();
+    const proxyCache = new WeakMap();
+    const frameApps = new WeakMap();
+    const embedded = !!(global.parent && global.parent !== global);
+    let enabled = false;
+    let configKnown = false;
+    let localStarted = false;
+    let bridgeMode = embedded ? 'pending' : 'local';
+    let bridgeTimer = null;
+    let configUnsub = null;
+
+    const dayKey = () => new Date().toISOString().slice(0, 10);
+    const makeDocId = (date, uid) => `${date}__${encodeURIComponent(uid).slice(0, 900)}`;
+
+    function flushOne(key) {
+      const bucket = pending.get(key);
+      if (!bucket || bucket.busy || !bucket.reads || !FieldValue?.increment) return;
+      const appCounts = { ...bucket.readsByApp };
+      const reads = Object.values(appCounts).reduce((sum, value) => sum + value, 0);
+      if (!reads) return;
+      bucket.reads = 0;
+      bucket.readsByApp = Object.create(null);
+      bucket.busy = true;
+      const ref = rawCollection('firestore_quota_usage').doc(makeDocId(bucket.date, bucket.user.id));
+      const readsByApp = Object.fromEntries(Object.entries(appCounts).map(([key, value]) => [key, FieldValue.increment(value)]));
+      ref.set({
+        date: bucket.date,
+        userId: bucket.user.id,
+        userName: bucket.user.name,
+        role: bucket.user.role,
+        estimatedReads: FieldValue.increment(reads),
+        meterWrites: FieldValue.increment(1),
+        readsByApp,
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true }).catch(e => {
+        bucket.reads += reads;
+        for (const [app, value] of Object.entries(appCounts)) bucket.readsByApp[app] = (bucket.readsByApp[app] || 0) + value;
+        console.warn('[quota meter] no se pudo guardar el agregado', e?.code || e?.message || e);
+      }).finally(() => {
+        bucket.busy = false;
+        if (bucket.reads >= 25) flushOne(key);
+        else if (!bucket.reads) pending.delete(key);
+      });
+    }
+
+    function flushAll() { for (const key of pending.keys()) flushOne(key); }
+
+    function addToBucket(units, sourceApp) {
+      const count = Math.max(0, Math.floor(Number(units) || 0));
+      if (!count) return;
+      if (!configKnown) {
+        const app = normalizeAppKey(sourceApp || localAppKey);
+        preConfiguration.set(app, (preConfiguration.get(app) || 0) + count);
+        return;
+      }
+      if (!enabled) return;
+      const user = safeUser();
+      if (!user) return;
+      const date = dayKey();
+      const key = `${date}::${user.id}`;
+      const bucket = pending.get(key) || { date, user, reads: 0, readsByApp: Object.create(null), busy: false };
+      bucket.user = user;
+      const app = normalizeAppKey(sourceApp || localAppKey);
+      bucket.reads += count;
+      bucket.readsByApp[app] = (bucket.readsByApp[app] || 0) + count;
+      pending.set(key, bucket);
+      if (bucket.reads >= 25) flushOne(key);
+    }
+
+    function sendReport(units, sourceApp) {
+      const count = Math.max(0, Math.floor(Number(units) || 0));
+      if (!count) return;
+      const app = normalizeAppKey(sourceApp || localAppKey);
+      if (!embedded || bridgeMode === 'local') { addToBucket(count, app); return; }
+      if (bridgeMode === 'pending') {
+        preConfiguration.set(app, (preConfiguration.get(app) || 0) + count);
+        return;
+      }
+      try { global.parent.postMessage({ type: REPORT, protocol: PROTOCOL, app, units: count }, '*'); }
+      catch (e) { /* Do not break the business screen if the host refuses messaging. */ }
+    }
+
+    function startLocalMeter() {
+      if (localStarted) return;
+      localStarted = true;
+      try {
+        configUnsub = rawCollection('launcher_settings').doc('firestore_quota_monitor').onSnapshot(doc => {
+          if (doc?.metadata?.fromCache === true) return;
+          const next = !!(doc.exists && doc.data()?.enabled === true);
+          const wasEnabled = enabled;
+          configKnown = true;
+          if (wasEnabled && !next) flushAll();
+          enabled = next;
+          const queued = Array.from(preConfiguration.entries());
+          preConfiguration.clear();
+          if (enabled) queued.forEach(([app, count]) => addToBucket(count, app));
+        }, e => {
+          configKnown = true;
+          enabled = false;
+          preConfiguration.clear();
+          console.warn('[quota meter] no se pudo leer el interruptor', e?.code || e?.message || e);
+        });
+        if (typeof global.setInterval === 'function') global.setInterval(flushAll, 60000);
+        if (typeof global.addEventListener === 'function') global.addEventListener('pagehide', flushAll);
+        global.document?.addEventListener?.('visibilitychange', () => {
+          if (global.document.visibilityState === 'hidden') flushAll();
+        });
+      } catch (e) {
+        configKnown = true;
+        enabled = false;
+        console.warn('[quota meter] no se pudo inicializar', e?.code || e?.message || e);
+      }
+    }
+
+    function isLiveFrame(source) {
+      if (!source || !global.document?.querySelectorAll) return false;
+      try { return Array.from(global.document.querySelectorAll('iframe')).some(frame => frame.contentWindow === source); }
+      catch (e) { return false; }
+    }
+
+    function handleParentMessage(event) {
+      const data = event?.data;
+      const source = event?.source;
+      if (!data || data.protocol !== PROTOCOL || !isLiveFrame(source)) return;
+      if (data.type === HELLO) {
+        frameApps.set(source, normalizeAppKey(data.app || 'iframe'));
+        try { source.postMessage({ type: ACK, protocol: PROTOCOL }, '*'); } catch (e) {}
+        return;
+      }
+      if (data.type === REPORT && frameApps.has(source)) {
+        sendReport(data.units, frameApps.get(source));
+      }
+    }
+
+    function activateLocalFallback() {
+      if (bridgeMode !== 'pending') return;
+      bridgeMode = 'local';
+      if (bridgeTimer) global.clearTimeout(bridgeTimer);
+      global.removeEventListener?.('message', handleChildAck);
+      startLocalMeter();
+      const queued = Array.from(preConfiguration.entries());
+      preConfiguration.clear();
+      queued.forEach(([app, count]) => addToBucket(count, app));
+    }
+
+    function handleChildAck(event) {
+      if (!embedded || event?.source !== global.parent || event?.data?.type !== ACK || event?.data?.protocol !== PROTOCOL) return;
+      if (bridgeMode !== 'pending') return;
+      bridgeMode = 'parent';
+      if (bridgeTimer) global.clearTimeout(bridgeTimer);
+      global.removeEventListener?.('message', handleChildAck);
+      const queued = Array.from(preConfiguration.entries());
+      preConfiguration.clear();
+      for (const [app, count] of queued) {
+        try { global.parent.postMessage({ type: REPORT, protocol: PROTOCOL, app, units: count }, '*'); } catch (e) {}
+      }
+    }
+
+    // Any level may receive reports from its direct child iframes; embedded index pages relay upward.
+    global.addEventListener?.('message', handleParentMessage);
+    if (embedded) {
+      global.addEventListener?.('message', handleChildAck);
+      try { global.parent.postMessage({ type: HELLO, protocol: PROTOCOL, app: localAppKey }, '*'); }
+      catch (e) { activateLocalFallback(); }
+      if (bridgeMode === 'pending' && typeof global.setTimeout === 'function') bridgeTimer = global.setTimeout(activateLocalFallback, 700);
+      else if (bridgeMode === 'local') startLocalMeter();
+    } else {
+      startLocalMeter();
+    }
+
+    function queryChangeReads(snap) {
+      if (Array.isArray(snap?.docs) && typeof snap.docChanges === 'function') {
+        try {
+          // Conservatively count removed results: a changed document leaving a query may be billable.
+          // Physical deletions may be over-counted because the client cannot distinguish the cause.
+          return snap.docChanges().filter(change => change.type === 'removed' || !change.doc?.metadata?.hasPendingWrites).length;
+        } catch (e) {}
+      }
+      return 1;
+    }
+
+    function wrapListener(target, original, args) {
+      const nextIndex = typeof args[0] === 'function' || typeof args[0]?.next === 'function' ? 0 :
+        (typeof args[1] === 'function' || typeof args[1]?.next === 'function' ? 1 : -1);
+      if (nextIndex < 0) return original.apply(target, args);
+      const wrappedArgs = args.slice();
+      const observer = wrappedArgs[nextIndex];
+      let hasServerSnapshot = false;
+      let lastDocFingerprint = null;
+      const meterNext = snap => {
+        const fromCache = snap?.metadata?.fromCache === true;
+        const pendingWrite = snap?.metadata?.hasPendingWrites === true;
+        if (!fromCache && !pendingWrite) {
+          if (!hasServerSnapshot) {
+            sendReport(countInitialSnapshot(snap), localAppKey);
+            hasServerSnapshot = true;
+            if (!Array.isArray(snap?.docs)) {
+              try { lastDocFingerprint = JSON.stringify({ exists: snap.exists, data: snap.exists ? snap.data() : null }); } catch (e) { lastDocFingerprint = ''; }
+            }
+          } else if (Array.isArray(snap?.docs) && typeof snap.docChanges === 'function') {
+            sendReport(queryChangeReads(snap), localAppKey);
+          } else {
+            let fingerprint = '';
+            try { fingerprint = JSON.stringify({ exists: snap.exists, data: snap.exists ? snap.data() : null }); } catch (e) { fingerprint = String(Date.now()); }
+            if (fingerprint !== lastDocFingerprint) sendReport(1, localAppKey);
+            lastDocFingerprint = fingerprint;
+          }
+        }
+        if (typeof observer === 'function') observer(snap);
+        else if (observer && typeof observer.next === 'function') observer.next(snap);
+      };
+      if (typeof observer === 'function') wrappedArgs[nextIndex] = meterNext;
+      else wrappedArgs[nextIndex] = { ...observer, next: meterNext };
+      return original.apply(target, wrappedArgs);
+    }
+
+    function wrapRef(ref) {
+      if (!ref || (typeof ref !== 'object' && typeof ref !== 'function')) return ref;
+      if (proxyCache.has(ref)) return proxyCache.get(ref);
+      const proxy = new Proxy(ref, {
+        get(target, prop) {
+          const value = Reflect.get(target, prop, target);
+          if (prop === 'get' && typeof value === 'function') {
+            return (...args) => Promise.resolve(value.apply(target, args)).then(snap => {
+              if (!(args[0] && args[0].source === 'cache') && snap?.metadata?.fromCache !== true) sendReport(countInitialSnapshot(snap), localAppKey);
+              return snap;
+            });
+          }
+          if (prop === 'onSnapshot' && typeof value === 'function') return (...args) => wrapListener(target, value, args);
+          if (chainMethods.has(prop) && typeof value === 'function') return (...args) => wrapRef(value.apply(target, args));
+          return typeof value === 'function' ? value.bind(target) : value;
+        }
+      });
+      proxyCache.set(ref, proxy);
+      return proxy;
+    }
+
+    const proxyDb = new Proxy(db, {
+      get(target, prop) {
+        if (prop === 'collection') return (...args) => wrapRef(rawCollection(...args));
+        if (prop === 'doc' && rawDoc) return (...args) => wrapRef(rawDoc(...args));
+        if (prop === 'collectionGroup' && rawCollectionGroup) return (...args) => wrapRef(rawCollectionGroup(...args));
+        if (prop === 'runTransaction' && typeof target.runTransaction === 'function') {
+          return (updateFunction, options) => target.runTransaction(transaction => {
+            const txProxy = new Proxy(transaction, {
+              get(tx, txProp) {
+                const method = Reflect.get(tx, txProp, tx);
+                if (txProp === 'get' && typeof method === 'function') return (...args) => Promise.resolve(method.apply(tx, args)).then(snap => { sendReport(countInitialSnapshot(snap), localAppKey); return snap; });
+                if (txProp === 'getAll' && typeof method === 'function') return (...args) => Promise.resolve(method.apply(tx, args)).then(snaps => { (snaps || []).forEach(snap => sendReport(countInitialSnapshot(snap), localAppKey)); return snaps; });
+                return typeof method === 'function' ? method.bind(tx) : method;
+              }
+            });
+            return updateFunction(txProxy);
+          }, options);
+        }
+        const value = Reflect.get(target, prop, target);
+        return typeof value === 'function' ? value.bind(target) : value;
+      }
+    });
+
+    try { installedDbs.set(db, proxyDb); } catch (e) {}
+    return proxyDb;
+  }
+
+  global.INGESA_QUOTA_METER = { version: 3, install };
+})(window);
+</script>
 </head>
 <body class="select-none">
     <div id="root" class="h-full"></div>
